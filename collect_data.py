@@ -8,6 +8,7 @@ import datetime
 import time
 import pytz
 import os
+import csv
 from myutil import *
 from tendo import singleton
 
@@ -267,7 +268,7 @@ class collect_data(object):
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
-        self.rd['get_all_indexs'] = self.time_str
+        self.rd['_____get_all_indexs'] = self.time_str
         print ("===> get_all_indexs END <===")
 
 
@@ -286,16 +287,15 @@ class collect_data(object):
         # print(sectors)
 
         # 获取概念代码. 网址: "http://data.eastmoney.com/bkzj/gn.html"
-        # url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-        #       "type=CT&cmd=C._BKGN&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&" \
-        #       "cb=callback05370824536073362&callback=callback05370824536073362&" \
-        #        + "token={}&_={}".format(get_token(), get__())
-        # r = self.requests_get(url, "概念代码")
-        # # print (r.text)
-        #
-        # concepts = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
-        # # print(concepts)
-        concepts = []
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
+              "type=CT&cmd=C._BKGN&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&" \
+              "cb=callback05370824536073362&callback=callback05370824536073362&" \
+               + "token={}&_={}".format(get_token(), get__())
+        r = self.requests_get(url, "概念代码")
+        # print (r.text)
+
+        concepts = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+        # print(concepts)
 
         name = {}
         for i in sectors:
@@ -308,23 +308,60 @@ class collect_data(object):
         print ("===> get_block_code END <===")
         return name
 
+    def save_blocks_to_file(self, path=None):
+        if (path is None):
+            if (os.path.exists(get_report_path()) is False):
+                os.makedirs(get_report_path())
+            path = get_report_path()+"blocks_dl.csv"
+        blocks = self.get_block_code()
+        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            for key, value in blocks.items():
+                writer.writerow([key, value])
+        print("saved blocks to file: {}".format(path))
 
-    def get_all_blocks(self):
+    def get_blocks_from_file(self, file=None):
+        blocks_dict = {}
+        if (file is None):
+            file = get_report_path()+"blocks.csv"
+        try:
+            with open(file, 'r', encoding="utf-8") as csv_file:
+                reader = csv.reader(csv_file)
+                blocks_dict = dict(reader)
+        except Exception as e:
+            self.rd['block_file_err'] = e
+            print (e)
+        return blocks_dict
+
+    def get_all_blocks(self, blocks=None):
+        # blocks = {'BK04561': '家电行业', 'BK04771': '酿酒行业',} # 字典格式
+        if blocks is None:
+            blocks = self.get_blocks_from_file()
+            if (len(blocks) == 0):
+                # try:
+                #     blocks = self.get_block_code()
+                # except Exception as e:
+                #     blocks = []
+                #     self.rd['no_blocks'] = e
+                #     print (e)
+                self.rd['no_blocks'] = "NO blocks found"
+                print ("===> get_all_blocks NO blocks found! <===")
+                return
+
         # 板块信息
-        name = self.get_block_code()
         print ("===> get_all_blocks START <===")
-        for code in name:
+        for code in blocks:
             try:
                 l = self.get_code_info(code)
                 # print(l)
-                self.save_info(l, name[code])
+                self.save_info(l, blocks[code])
                 d = self.get_day_detail(code)
                 # print(d)
-                self.save_detail(d, name[code])
+                self.save_detail(d, blocks[code])
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
-        self.rd['get_all_blocks'] = self.time_str
+        self.rd['_____get_all_blocks'] = self.time_str
         print ("===> get_all_blocks END <===")
 
 
@@ -387,15 +424,20 @@ class collect_data(object):
         return name
 
 
-    def get_all_shares(self):
-        tickers = self.get_share_code_from_file()
-        if (len(tickers) == 0):
-            try:
-                tickers = self.get_share_code()
-            except Exception as e:
-                tickers = []
-                self.rd['no_tickers'] = e
-                print (e)
+    def get_all_shares(self, tickers=None):
+        # tickers = ['6012161', '3000012', ] # 列表格式, 前6为为代码, 最后一位1表示上海, 2表示深圳
+        if tickers is None:
+            tickers = self.get_share_code_from_file()
+            if (len(tickers) == 0):
+                # try:
+                #     tickers = self.get_share_code()
+                # except Exception as e:
+                #     tickers = []
+                #     self.rd['no_tickers'] = e
+                #     print (e)
+                self.rd['no_tickers'] = "NO tickers found"
+                print ("===> get_all_shares NO tickers found! <===")
+                return
 
         print ("===> get_all_shares START <===")
         for code in tickers:
@@ -409,7 +451,7 @@ class collect_data(object):
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
-        self.rd['get_all_shares'] = self.time_str
+        self.rd['_____get_all_shares'] = self.time_str
         print ("===> get_all_shares END <===")
 
 
@@ -422,7 +464,8 @@ class collect_data(object):
         print("当前北京时间:{}".format(now))
         week = now.split()[0]
         hour = now.split()[2].split(':')[0]
-        if (week == 'Sat' or week == 'Sun' or hour < '07' or hour >= '15'):
+        min = now.split()[2].split(':')[1]
+        if (week == 'Sat' or week == 'Sun' or hour < '07' or (hour >= '15' and min >= '30')):
             t = self.get_code_info("0000011")
             print("股票更新日期:    {} {}".format(t[0], t[1]))
             self.rd['data_start'] = self.time_str
@@ -475,8 +518,7 @@ class collect_data(object):
 
 
 
-def collect_data_process():
-    cd = collect_data()
+def collect_data_process(cd):
     if (cd.update_check()):
         cd.get_all_indexs()
         cd.get_all_blocks()
@@ -485,8 +527,10 @@ def collect_data_process():
 
 if __name__ == '__main__':
     me = singleton.SingleInstance()
-    # collect_data_process()
     cd = collect_data()
-    cd.get_all_shares()
+    # collect_data_process(cd)
+    cd.save_blocks_to_file()
+
+
 
 
