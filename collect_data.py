@@ -464,8 +464,7 @@ class collect_data(object):
         print("当前北京时间:{}".format(now))
         week = now.split()[0]
         hour = now.split()[2].split(':')[0]
-        min = now.split()[2].split(':')[1]
-        if (week == 'Sat' or week == 'Sun' or hour < '07' or (hour >= '15' and min >= '30')):
+        if (week == 'Sat' or week == 'Sun' or hour < '07' or hour >= '16'):
             t = self.get_code_info("0000011")
             print("股票更新日期:    {} {}".format(t[0], t[1]))
             self.rd['data_start'] = self.time_str
@@ -529,7 +528,10 @@ if __name__ == '__main__':
     me = singleton.SingleInstance()
     cd = collect_data()
     # collect_data_process(cd)
-    cd.save_blocks_to_file()
+    # cd.save_blocks_to_file()
+    # tickers = ['3003762','6000171']
+    # cd.get_all_shares(tickers)
+
 
 
 
