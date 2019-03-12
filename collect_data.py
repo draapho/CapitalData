@@ -308,6 +308,25 @@ class collect_data(object):
         print ("===> get_block_code END <===")
         return name
 
+    def save_shares_to_file(self, path=None):
+        if (path is None):
+            if (os.path.exists(get_report_path()) is False):
+                os.makedirs(get_report_path())
+            path = get_report_path()+"tickers_dl.csv"
+
+        codes = self.get_share_code_from_file()
+        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            for code in codes:
+                try:
+                    info = self.get_code_info(code)
+                    writer.writerow([code, info[4]])
+                    print (info)
+                except Exception as e:
+                    writer.writerow([code, "==========<"])
+                    print (e)
+        print("saved shares to file: {}".format(path))
+
     def save_blocks_to_file(self, path=None):
         if (path is None):
             if (os.path.exists(get_report_path()) is False):
@@ -517,20 +536,24 @@ class collect_data(object):
 
 
 
-def collect_data_process(cd):
+def collect_data_test(cd):
     if (cd.update_check()):
-        cd.get_all_indexs()
-        cd.get_all_blocks()
-        cd.get_all_shares()
+        # cd.get_all_indexs()
+        # cd.get_all_blocks()
+        # cd.get_all_shares()
         cd.update_finished()
+    # tickers = ['3003762','6000171']
+    # cd.get_all_shares(tickers)
+
+def save_file_dl(cd):
+    cd.save_blocks_to_file()
+    cd.save_shares_to_file()
 
 if __name__ == '__main__':
     me = singleton.SingleInstance()
     cd = collect_data()
-    # collect_data_process(cd)
-    # cd.save_blocks_to_file()
-    # tickers = ['3003762','6000171']
-    # cd.get_all_shares(tickers)
+    save_file_dl(cd)
+    # collect_data_test(cd)
 
 
 
