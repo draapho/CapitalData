@@ -3,6 +3,7 @@
 import smtplib
 import time
 import collect_data
+import collect_autofix
 from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -11,7 +12,7 @@ from myutil import *
 from tendo import singleton
 
 
-def send_mail():
+def send_mail(blocks, shares):
     # 定义相关数据,请更换自己的真实数据
     smtpserver = 'smtp.gmail.com'
     sender = 'kim.yu.job@gmail.com'
@@ -21,10 +22,12 @@ def send_mail():
     password = 'Y7bqQ4ahpjGF265S'
 
     msg = MIMEMultipart()
-    boby = """
-    <p>股票资金流和价格数据自动更新完成, 详细结果请查看附件</p>
-    """
-    mail_body = MIMEText(boby, _subtype='html', _charset='utf-8')
+    # boby = """
+    # <p>股票资金流和价格数据自动更新完成, 详细结果请查看附件</p>
+    # """
+    # mail_body = MIMEText(boby, _subtype='html', _charset='utf-8')
+    boby = "股票资金流和价格数据自动更新完成, 详细结果请查看附件.\r\n尝试自动修复如下数据:\r\nblocks:{}\r\nshares:{}\r\n".format(blocks, shares)
+    mail_body = MIMEText(boby, _subtype='plain', _charset='utf-8')
     msg['Subject'] = Header("股票数据更新", 'utf-8')
     msg['From'] = sender
     receivers = receiver
@@ -62,18 +65,23 @@ def send_mail():
 def alarm_clock():
     print ("alarm clock: 周一到周五 北京时间 16:00")
     scheduler = BlockingScheduler()
-    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri', hour=16, minute=00, timezone='Asia/Shanghai')
+    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri', hour=16, timezone='Asia/Shanghai')
     scheduler.start()
 
 def collect_data_process():
     print ("start collect_data_silence")
-    cd = collect_data.collect_data()
-    if (cd.update_check()):
-        cd.get_all_indexs()
-        cd.get_all_blocks()
-        cd.get_all_shares()
-        cd.update_finished()
-        send_mail()
+    try:
+        cd = collect_data.collect_data()
+        if (cd.update_check()):
+            cd.get_all_indexs()
+            cd.get_all_blocks()
+            cd.get_all_shares()
+            cd.update_finished()
+            blocks, shares = collect_autofix.check_report()
+            collect_autofix.fix_missed_data(blocks, shares)
+            send_mail(blocks, shares)
+    except Exception as e:
+        print (e)
     print ("end collect_data_silence")
 
 if __name__ == '__main__':

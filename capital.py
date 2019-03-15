@@ -71,22 +71,18 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
             with open( ".\\_para\\blocks.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
                 self.blocks = pd.DataFrame(reader, columns=['code', 'name'])
-                self.blocks['deviate'] = np.nan
-                self.blocks['20days'] = np.nan
         except Exception as e:
             print (e)
-            self.blocks = pd.DataFrame(columns=['code', 'name', 'deviate', '20days'])
+            self.blocks = pd.DataFrame(columns=['code', 'name'])
         # print (self.blocks)
 
         try:
             with open( ".\\_para\\tickers.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
                 self.tickers = pd.DataFrame(reader, columns=['code', 'name'])
-                self.tickers['deviate'] = np.nan
-                self.tickers['20days'] = np.nan
         except Exception as e:
             print (e)
-            self.tickers_dict = pd.DataFrame(columns=['code', 'name', 'deviate', '20days'])
+            self.tickers_dict = pd.DataFrame(columns=['code', 'name'])
         # print (self.tickers)
 
         # 点击操作
@@ -140,23 +136,25 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
 
         # 作图初始化
         self.graphicsView.clear()
-        p1 = self.graphicsView.addPlot(row=0, col=0,
+        self.p1 = self.graphicsView.addPlot(row=0, col=0,
                                        title = os.path.splitext(os.path.basename(self.file))[0],
                                        axisItems={'bottom': DateAxisItem(list(quotes['date']), orientation='bottom')})
         p2 = self.graphicsView.addPlot(row=1, col=0,
                                        axisItems={'left': VolumnAxisItem(orientation='left')})
         p2.hideAxis('bottom')
-        p1.setMouseEnabled(x=True,y=False)  # 鼠标滚轮仅X轴缩放
+        self.p1.setMouseEnabled(x=True,y=False)  # 鼠标滚轮仅X轴缩放
         p2.setMouseEnabled(x=True,y=False)
-        p2.setXLink(p1)                     # 同步缩放
+        p2.setXLink(self.p1)                     # 同步缩放
+        self.p1.scene().sigMouseClicked.connect(self.mouseClicked)
 
         # 导入数据
         item = KItem(quotes[['open', 'high', 'low', 'close']])
-        p1.addItem(item)
-        day5=quotes['close'].rolling(5).mean()    # 增加 5日线
-        p1.plot(day5, pen="#ffffff")                # 白色
+        self.p1Len = len(quotes)
+        self.p1.addItem(item)
+        day5=quotes['close'].rolling(5).mean()      # 增加 5日线
+        self.p1.plot(day5, pen="#ffffff")                # 白色
         day20=quotes['close'].rolling(20).mean()    # 增加 20日线
-        p1.plot(day20, pen="#00ffff")               # 青色
+        self.p1.plot(day20, pen="#00ffff")               # 青色
 
         item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
         # p2.plot((quotes['small']))
@@ -204,6 +202,15 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
             text = self.tickers.values[mi.row()][0]
         self.lineEditSticker.setText(text)
         self.codeChoosed()
+
+    def mouseClicked(self,evt):
+        pos = evt.pos() #/////////////////////
+        print(pos)
+        if self.p1.sceneBoundingRect().contains(pos):
+            mousePoint = self.p1.vb.mapSceneToView(pos)
+            index = int(mousePoint.x()+1/3)
+            if index >= 0 and index <self.p1Len:
+                print (index)
 
 class PandasModel(QAbstractTableModel):
     """
