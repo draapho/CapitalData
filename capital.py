@@ -33,29 +33,35 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
 
         # 搜索文件列表
         try:
-            self.tickers = glob.glob(self.path.format(year))
-            if len(self.tickers) == 0:
+            self.tickers_code = glob.glob(self.path.format(year))
+            if len(self.tickers_code) == 0:
                 year = year-1
-                self.tickers = glob.glob(self.path.format(year))
-            self.file = ".\\_data\\{}\\_info\\上证指数.csv".format(year)
-            # print (self.tickers)
+                self.tickers_code = glob.glob(self.path.format(year))
+            self.file = ".\\_data\\{}\\_info\\0000011.csv".format(year)
+            # print (self.tickers_code)
         except Exception as e:
-            self.tickers = []
+            self.tickers_code = []
             self.file = ""
             print (e)
 
+        self.names = ["上证指数","深圳指数","中小板","创业板"]
         # 读取csv文件获取股票名称
         try:
             with open( ".\\_para\\tickers.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                self.names = list(dict(reader).values())
+                self.names.extend(list(dict(reader).values()))
         except Exception as e:
             print (e)
-            self.names = []
-        # print(self.names)
+        # 读取csv文件获取板块名称
+        try:
+            with open( ".\\_para\\blocks.csv", 'r', encoding="utf-8") as csv_file:
+                reader = csv.reader(csv_file)
+                self.names.extend(list(dict(reader).values()))
+        except Exception as e:
+            print (e)
 
         # 自动补全
-        items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers]
+        items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers_code]
         items_list.extend(self.names)
         # print (items_list)
         completer = QCompleter(items_list)
@@ -67,22 +73,13 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        try:
-            with open( ".\\_para\\blocks.csv", 'r', encoding="utf-8") as csv_file:
-                reader = csv.reader(csv_file)
-                self.blocks = pd.DataFrame(reader, columns=['code', 'name'])
-        except Exception as e:
-            print (e)
-            self.blocks = pd.DataFrame(columns=['code', 'name'])
+        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
+        self.blocks.loc[len(self.blocks)] = {'code': "0000011", 'name': "上证指数"}
+        self.blocks.loc[len(self.blocks)] = {'code': "3990012", 'name': "深圳指数"}
+        self.blocks.loc[len(self.blocks)] = {'code': "3990052", 'name': "中小板"}
+        self.blocks.loc[len(self.blocks)] = {'code': "3990062", 'name': "创业板"}
         # print (self.blocks)
-
-        try:
-            with open( ".\\_para\\tickers.csv", 'r', encoding="utf-8") as csv_file:
-                reader = csv.reader(csv_file)
-                self.tickers = pd.DataFrame(reader, columns=['code', 'name'])
-        except Exception as e:
-            print (e)
-            self.tickers_dict = pd.DataFrame(columns=['code', 'name'])
+        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
         # print (self.tickers)
 
         # 点击操作
@@ -108,7 +105,10 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         if (name in list(self.tickers['name'])):
             name = self.tickers[self.tickers['name'].isin([name])]
             name = name.iloc[0][0]
-        if ((name in list(self.blocks['name'])) or (name in list(self.tickers['code']))):
+        elif (name in list(self.blocks['name'])):
+            name = self.blocks[self.blocks['name'].isin([name])]
+            name = name.iloc[0][0]
+        if ((name in list(self.blocks['code'])) or (name in list(self.tickers['code']))):
             name = "{}\\{}.csv".format(os.path.dirname(self.file), name)
             if os.path.exists(name):
                 print (name)
@@ -130,7 +130,7 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
                           ('sin', '<f4'),('sout', '<f4'),('small', '<f4'),('sper', 'S'),
                           ])
         # 读取数据
-        quotes = pd.read_csv(self.file, header=None, names=columns, dtype=dtype)
+        quotes = pd.read_csv(self.file, header=None, names=columns, dtype=dtype, na_values= '-')
         quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
         # print(quotes)
 
@@ -199,7 +199,7 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         if (self.isTableBlocks):
             text = self.blocks.values[mi.row()][1]
         else:
-            text = self.tickers.values[mi.row()][0]
+            text = self.tickers.values[mi.row()][1]
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 

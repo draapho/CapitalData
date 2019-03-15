@@ -30,6 +30,8 @@ def check_report():
             if process == "shares":
                 if "'NoneType' object is not subscriptable" in line:
                     list_shares.append(line.split(",")[0])
+                elif "FAILED" in line:
+                    list_shares.append(line.split(",")[0])
     print ("missed blocks:{}, missed shares:{}".format(dict_blocks, list_shares))
     return dict_blocks, list_shares
 
@@ -55,4 +57,3 @@ if __name__ == '__main__':
     me = singleton.SingleInstance()
     blocks, shares = check_report()
     fix_missed_data(blocks, shares)
-

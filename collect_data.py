@@ -261,10 +261,10 @@ class collect_data(object):
             try:
                 l = self.get_code_info(code)
                 # print(l)
-                self.save_info(l, name[code])
+                self.save_info(l, code)
                 d = self.get_day_detail(code)
                 # print(d)
-                self.save_detail(d, name[code])
+                self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
@@ -373,10 +373,10 @@ class collect_data(object):
             try:
                 l = self.get_code_info(code)
                 # print(l)
-                self.save_info(l, blocks[code])
+                self.save_info(l, code)
                 d = self.get_day_detail(code)
                 # print(d)
-                self.save_detail(d, blocks[code])
+                self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
