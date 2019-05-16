@@ -13,7 +13,6 @@ from myutil import *
 from tendo import singleton
 
 
-
 class collect_data(object):
     def __init__(self):
         self.time_str = None
@@ -23,10 +22,10 @@ class collect_data(object):
     def requests_get(self, url, comment=""):
         for i in range(3):
             try:
-                print ("{} {}".format(comment, url))
+                print("{} {}".format(comment, url))
                 r = requests.get(url, timeout=30)
                 # print (r.text)
-                break;
+                break
             except Exception as e:
                 t = time.strftime("%H%M%S", time.localtime())
                 self.rd["url_err_{}".format(t)] = url
@@ -34,7 +33,7 @@ class collect_data(object):
                 pattern = r'token=(.*?)&'
                 url = re.sub(pattern, "token={}&".format(get_token()), url)
                 # 10s后重试连接
-                print ("10s后重试. 错误:{}".format(e))
+                print("10s后重试. 错误:{}".format(e))
                 time.sleep(10)
                 r = None
         if r is None:
@@ -44,8 +43,8 @@ class collect_data(object):
     def get_day_detail(self, id):
         # 单日资金流明细, 走势图.  网址: "http://data.eastmoney.com/zjlx/zs000001.html"
         self.url = "http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?" \
-              "type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&" \
-              + "id={}&acces_token={}&_={}".format(id, get_token(), get__())
+            "type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&" \
+            + "id={}&acces_token={}&_={}".format(id, get_token(), get__())
         r = self.requests_get(self.url, "资金明细")
         # print (r.text)
 
@@ -54,7 +53,8 @@ class collect_data(object):
             detail_capital = re.compile(pattern, re.S).findall(r.text)
             # print (detail_capital[0])
             pattern = r'\"(.*?,.*?,.*?,.*?)\",?'
-            detail_capital = re.compile(pattern, re.S).findall(detail_capital[0])
+            detail_capital = re.compile(
+                pattern, re.S).findall(detail_capital[0])
             # print (detail_capital)
             # 只保存了 "ya" 下的数值. "xa"被滤除, 其格式固定, 为9:31-11:30, 13:01-15:00, 间隔为1分钟的时间, 共240个时间间隔.
             # "xa":"             09:31,                                  09:32,                                   09:33,                                  ...,11:30,13:01,...,15:00,"
@@ -62,8 +62,10 @@ class collect_data(object):
             # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
             detail_capital[0].split(',')[4]
         except Exception as e:
-            self.rd["detail_capital_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(self.url, e, detail_capital)
-            print ("detail_capital_{}, err:{}\r\ninfo:{}".format(id, e, detail_capital))
+            self.rd["detail_capital_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+                self.url, e, detail_capital)
+            print("detail_capital_{}, err:{}\r\ninfo:{}".format(
+                id, e, detail_capital))
             return None
 
         # 单日股价明细, 走势图. 网址: "http://quote.eastmoney.com/zs000001.html"
@@ -84,8 +86,9 @@ class collect_data(object):
             # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
             detail_price[1]
         except Exception as e:
-            self.rd["detail_price_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(self.url, e, detail_price)
-            print ("detail_price_{}, err:{}\r\ninfo:{}".format(id, e, detail_price))
+            self.rd["detail_price_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+                self.url, e, detail_price)
+            print("detail_price_{}, err:{}\r\ninfo:{}".format(id, e, detail_price))
             return None
 
         # 将所有信息打包成字典并返回
@@ -114,8 +117,8 @@ class collect_data(object):
     def get_code_info(self, cmd):
         # 单日资金流数据信息. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
         self.url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "type=CT&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&" \
-              + "cmd={}&token={}".format(cmd, get_token())
+            "type=CT&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&" \
+            + "cmd={}&token={}".format(cmd, get_token())
         r = self.requests_get(self.url, "资金数据")
         # print (r.text)
 
@@ -133,15 +136,15 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '0.74%', '-75811.38', '285986', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%', '-0.63%', '2019-01-11 15:26:49']
             list1[23]
         except Exception as e:
-            self.rd["info_capital_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(self.url, e, info_capital)
-            print ("info_capital_{}, err:{}\r\ninfo:{}".format(cmd, e, info_capital))
+            self.rd["info_capital_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+                self.url, e, info_capital)
+            print("info_capital_{}, err:{}\r\ninfo:{}".format(cmd, e, info_capital))
             return None
-
 
         # 单日涨跌信息. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
         self.url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&" \
-              + "cmd={}&token={}&rt={}".format(cmd, get_token(), get_rt())
+            "type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&" \
+            + "cmd={}&token={}&rt={}".format(cmd, get_token(), get_rt())
         r = self.requests_get(self.url, "股价数据")
         # print (r.text)
 
@@ -157,8 +160,9 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '18.73', '0.74', '14944410112', '122375663616', '0.85', '2535.10', '2539.55', '2554.79', '2533.36', '0.44', '0.87', '-']
             list2[13]
         except Exception as e:
-            self.rd["info_price_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(self.url, e, info_price)
-            print ("info_price_{}, err:{}\r\ninfo:{}".format(cmd, e, info_price))
+            self.rd["info_price_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+                self.url, e, info_price)
+            print("info_price_{}, err:{}\r\ninfo:{}".format(cmd, e, info_price))
             return None
 
         list_info = []
@@ -174,7 +178,6 @@ class collect_data(object):
         # self.get_captial_details(cmd)
         return list_info
 
-
     def check_file(self, file, date):
         if os.path.exists(file):
             # 读取文件最后一行
@@ -189,7 +192,7 @@ class collect_data(object):
                     last_line = lines[-1]
                     date_last = last_line.decode().split(',')[0]
                 except Exception as e:
-                    print (e)
+                    print(e)
                 else:
                     #日期相同, 则删除最后一行
                     if date_last == date:
@@ -198,7 +201,7 @@ class collect_data(object):
 
     def save_info(self, info, fileName, path=None):
         if info is None:
-            print ("fail to save_info. fileName: {}".format(fileName))
+            print("fail to save_info. fileName: {}".format(fileName))
         if self.time_str is None:
             raise Exception("save_details failed! NO time information.")
         else:
@@ -206,7 +209,7 @@ class collect_data(object):
             # ymd[2] = ymd[2].split()[0]
             # print (ymd)
         if (path is None):
-            path = get_cur_dir()+"\\_data\\_info\\"
+            path = get_cur_dir() + "\\_data\\_info\\"
         fileName += ".csv"
         # print(path)
         # print(info)
@@ -215,13 +218,14 @@ class collect_data(object):
         if (os.path.exists(path) is False):
             os.makedirs(path)
 
-        self.check_file(path+fileName, info[0])
-        df.to_csv(path+fileName, mode='a', header=False, index=False, encoding='utf-8')
-        print ("saved {} info: {}".format(fileName, info))
+        self.check_file(path + fileName, info[0])
+        df.to_csv(path + fileName, mode='a', header=False,
+                  index=False, encoding='utf-8')
+        print("saved {} info: {}".format(fileName, info))
 
     def save_detail(self, detail, fileName, path=None):
         if detail is None:
-            print ("fail to save_detail. fileName: {}".format(fileName))
+            print("fail to save_detail. fileName: {}".format(fileName))
         if self.time_str is None:
             raise Exception("save_details failed! NO time information.")
         else:
@@ -230,7 +234,8 @@ class collect_data(object):
             date = self.time_str.split()[0]
             # print (ymd)
         if (path is None):
-            path = get_cur_dir()+"\\_data\\{}\\{}\\".format(ymd[0], ymd[1]+ymd[2])
+            path = get_cur_dir() + \
+                "\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
         fileName += ".csv"
         # print(path + fileName)
 
@@ -244,36 +249,60 @@ class collect_data(object):
         # print (df)
         if (os.path.exists(path) is False):
             os.makedirs(path)
-        df.to_csv(path+fileName)
+        df.to_csv(path + fileName)
         print("saved {} details. Date: {}".format(fileName, date))
 
-    def get_all_indexs(self):
-        # 指数信息
-        name = {
-            "0000011":"上证指数",
-            "3990012":"深圳指数",
-            "3990052":"中小板",
-            "3990062":"创业板"
+    def get_shares_from_web(self):
+        print("===> get_shares_from_web START <===")
+        blocks = {
+            "BK06111": "上证50_",
+            "BK06121": "上证180_",
+            "BK07051": "上证380",
+            "BK07431": "深证100R",
+            "BK05681": "深成500",
+            "BK05001": "HS300_",
+            "BK07011": "中证500",
+            "BK08211": "MSCI中国",
+            "BK08571": "MSCI大盘",
+            "BK08581": "MSCI中盘",
         }
+        # 获取板块内个股. 网址: "http://quote.eastmoney.com/center/boardlist.html#boards-BK06111"
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
+              "cb=jQuery112407525040804622392_1557980547906&type=CT&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)&" \
+              "st=(ChangePercent)&sr=-1&ps=20&" \
+              + "token={}&_={}".format(get_token(), get__())
+        url_cmd_page = "&cmd=C.{}&p={}"
+        name = {}
 
-        print ("===> get_all_indexs START <===")
-        for code in name:
-            try:
-                l = self.get_code_info(code)
-                # print(l)
-                self.save_info(l, code)
-                # d = self.get_day_detail(code)
-                # # print(d)
-                # self.save_detail(d, code)
-            except Exception as e:
-                self.rd[code] = e
-                print ("code:{}, err:{}".format(code, e))
-        self.rd['_____get_all_indexs'] = self.time_str
-        print ("===> get_all_indexs END <===")
+        for cmd, block in blocks.items():
+            r_old = None
+            page = 0
+            while (True):
+                page += 1
+                r = self.requests_get(
+                    url + url_cmd_page.format(cmd, page), "个股代码")
+                if (r_old == r.text):
+                    print("{} have pages:{}".format(block, page - 1))
+                    break
+                else:
+                    r_old = r.text
+                    # print (r.text)
+                    shares = re.compile(
+                        r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+                    print(shares)
+                    for i in shares:
+                        temp = i.split(',')
+                        # 去除B股, ST股
+                        if ('B' in temp[2] or 'ST' in temp[2]):
+                            continue
+                        else:
+                            name[temp[1] + temp[0]] = temp[2]
+        print(len(name), name)
+        print("===> get_shares_from_web END <===")
+        return name
 
-
-    def get_block_code(self):
-        print ("===> get_block_code START <===")
+    def get_blocks_from_web(self):
+        print("===> get_blocks_from_web START <===")
 
         # 获取板块代码. 网址: "http://data.eastmoney.com/bkzj/hy.html"
         url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
@@ -290,7 +319,7 @@ class collect_data(object):
         url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
               "type=CT&cmd=C._BKGN&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&" \
               "cb=callback05370824536073362&callback=callback05370824536073362&" \
-               + "token={}&_={}".format(get_token(), get__())
+            + "token={}&_={}".format(get_token(), get__())
         r = self.requests_get(url, "概念代码")
         # print (r.text)
 
@@ -300,39 +329,33 @@ class collect_data(object):
         name = {}
         for i in sectors:
             temp = i.split(',')
-            name[temp[1]+temp[0]] = temp[2]
+            name[temp[1] + temp[0]] = temp[2]
         for i in concepts:
             temp = i.split(',')
-            name[temp[1]+temp[0]] = temp[2]
-        print (name)
-        print ("===> get_block_code END <===")
+            name[temp[1] + temp[0]] = temp[2]
+        print(name)
+        print("===> get_blocks_from_web END <===")
         return name
 
     def save_shares_to_file(self, path=None):
         if (path is None):
             if (os.path.exists(get_report_path()) is False):
                 os.makedirs(get_report_path())
-            path = get_report_path()+"tickers_dl.csv"
+            path = get_report_path() + "tickers_dl.csv"
 
-        codes = self.get_share_code_from_file()
+        shares = self.get_shares_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
-            for code in codes:
-                try:
-                    info = self.get_code_info(code)
-                    writer.writerow([code, info[4]])
-                    print (info)
-                except Exception as e:
-                    writer.writerow([code, "==========<"])
-                    print (e)
+            for key, value in shares.items():
+                writer.writerow([key, value])
         print("saved shares to file: {}".format(path))
 
     def save_blocks_to_file(self, path=None):
         if (path is None):
             if (os.path.exists(get_report_path()) is False):
                 os.makedirs(get_report_path())
-            path = get_report_path()+"blocks_dl.csv"
-        blocks = self.get_block_code()
+            path = get_report_path() + "blocks_dl.csv"
+        blocks = self.get_blocks_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
             for key, value in blocks.items():
@@ -342,35 +365,147 @@ class collect_data(object):
     def get_blocks_from_file(self, file=None):
         blocks_dict = {}
         if (file is None):
-            file = get_report_path()+"blocks.csv"
+            file = get_report_path() + "blocks.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
                 blocks_dict = dict(reader)
         except Exception as e:
-            self.rd['block_file_err'] = e
-            print (e)
+            self.rd['blocks_csv_err'] = e
+            print(e)
         return blocks_dict
+
+    def get_shares_from_file(self, file=None):
+        tickers_dict = {}
+        if (file is None):
+            file = get_report_path() + "tickers.csv"
+        try:
+            with open(file, 'r', encoding="utf-8") as csv_file:
+                reader = csv.reader(csv_file)
+                tickers_dict = dict(reader)
+        except Exception as e:
+            self.rd['tickers_csv_err'] = e
+            print(e)
+        return tickers_dict
+
+        # 输入文件为通达信 EBK文件, 需要格式转换
+        # codes_list = []
+        # if (file is None):
+        #     # 通达信导出格式为EBK, 股票代码0开头表示深圳, 1开头表示上海
+        #     file = get_cur_dir() + "\\_para\\tickers.EBK"
+        # try:
+        #     with open(file, 'r') as f:
+        #         for line in f.readlines():
+        #             line = line.strip('\r\n ')
+        #             if (len(line) == 7):
+        #                 if line.startswith('0'):
+        #                     # 东方财富用2结尾表示深圳. 将首个0去掉, 末尾加上2
+        #                     line = line[1:] + '2'
+        #                     codes_list.append(line)
+        #                 elif line.startswith('1'):
+        #                     # 东方财富用1结尾表示上海. 将1移到末尾
+        #                     line = line[1:] + '1'
+        #                     codes_list.append(line)
+        #     print (codes_list)
+        # except Exception as e:
+        #     self.rd['tickers_ebk_err'] = e
+        #     print (e)
+        # return codes_list
+
+    def save_shares_in_blocks(self, block, shares, path=None):
+        if (path is None):
+            path = get_report_path() + "blocks\\"
+            if (os.path.exists(path) is False):
+                os.makedirs(path)
+            path = path + "{}.csv".format(block)
+
+        valid_shares = self.get_shares_from_file()
+        i = 0
+        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            for key, value in shares.items():
+                if (key in valid_shares):
+                    i = i + 1
+                    writer.writerow([key, value])
+        print("saved {} shares in {} to file: {}".format(i, block, path))
+
+    def get_shares_in_blocks(self):
+        print("===> get_shares_in_blocks START <===")
+        blocks = self.get_blocks_from_file()
+        # 获取板块内个股. 网址: "http://quote.eastmoney.com/center/boardlist.html#boards-BK06111"
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
+              "cb=jQuery112407525040804622392_1557980547906&type=CT&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)&" \
+              "st=(ChangePercent)&sr=-1&ps=20&" \
+              + "token={}&_={}".format(get_token(), get__())
+        url_cmd_page = "&cmd=C.{}&p={}"
+
+        for cmd, block in blocks.items():
+            #///////////////////////////// 打印进度, i / total.
+            name = {}
+            r_old = None
+            page = 0
+            while (True):
+                page += 1
+                r = self.requests_get(
+                    url + url_cmd_page.format(cmd, page), "个股代码")
+                if (r_old == r.text):
+                    print("{} {} have pages:{}".format(cmd, block, page - 1))
+                    print(len(name), name)
+                    self.save_shares_in_blocks(cmd, name)
+                    break
+                else:
+                    r_old = r.text
+                    # print (r.text)
+                    shares = re.compile(
+                        r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+                    print(shares)
+                    for i in shares:
+                        temp = i.split(',')
+                        # 去除B股, ST股
+                        if ('B' in temp[2] or 'ST' in temp[2]):
+                            continue
+                        else:
+                            name[temp[1] + temp[0]] = temp[2]
+        print("===> get_shares_in_blocks END <===")
+
+    def get_all_indexs(self):
+        # 指数信息
+        name = {
+            "0000011": "上证指数",
+            "3990012": "深圳指数",
+            "3990052": "中小板",
+            "3990062": "创业板"
+        }
+
+        print("===> get_all_indexs START <===")
+        for code in name:
+            try:
+                l = self.get_code_info(code)
+                # print(l)
+                self.save_info(l, code)
+                # d = self.get_day_detail(code)
+                # # print(d)
+                # self.save_detail(d, code)
+            except Exception as e:
+                self.rd[code] = e
+                print("code:{}, err:{}".format(code, e))
+        self.rd['_____get_all_indexs'] = self.time_str
+        print("===> get_all_indexs END <===")
 
     def get_all_blocks(self, blocks=None):
         # blocks = {'BK04561': '家电行业', 'BK04771': '酿酒行业',} # 字典格式
         if blocks is None:
             blocks = self.get_blocks_from_file()
             if (len(blocks) == 0):
-                # try:
-                #     blocks = self.get_block_code()
-                # except Exception as e:
-                #     blocks = []
-                #     self.rd['no_blocks'] = e
-                #     print (e)
                 self.rd['no_blocks'] = "NO blocks found"
-                print ("===> get_all_blocks NO blocks found! <===")
+                print("===> get_all_blocks NO blocks found! <===")
                 return
 
         # 板块信息
-        print ("===> get_all_blocks START <===")
+        print("===> get_all_blocks START <===")
         for code in blocks:
             try:
+                #///////////////////////////// 打印进度, i / total.
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)
@@ -379,88 +514,23 @@ class collect_data(object):
                 # self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
-                print ("code:{}, err:{}".format(code, e))
+                print("code:{}, err:{}".format(code, e))
         self.rd['_____get_all_blocks'] = self.time_str
-        print ("===> get_all_blocks END <===")
-
-
-    def get_share_code_from_file(self, file=None):
-        codes_list = []
-        if (file is None):
-            # 通达信导出格式为EBK, 股票代码0开头表示深圳, 1开头表示上海
-            file = get_cur_dir() + "\\_para\\tickers.EBK"
-        try:
-            with open(file, 'r') as f:
-                for line in f.readlines():
-                    line = line.strip('\r\n ')
-                    if (len(line) == 7):
-                        if line.startswith('0'):
-                            # 东方财富用2结尾表示深圳. 将首个0去掉, 末尾加上2
-                            line = line[1:] + '2'
-                            codes_list.append(line)
-                        elif line.startswith('1'):
-                            # 东方财富用1结尾表示上海. 将1移到末尾
-                            line = line[1:] + '1'
-                            codes_list.append(line)
-            print (codes_list)
-        except Exception as e:
-            self.rd['code_file_err'] = e
-            print (e)
-        return codes_list
-
-
-    def get_share_code(self):
-        print ("===> get_share_code START <===")
-        # 获取个股代码. 网址: "http://data.eastmoney.com/zjlx/detail.html"
-        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "type=ct&st=(Code)&sr=1&ps=50&js=var%20MtrayhTQ={pages:(pc),date:%222014-10-22%22,data:[(x)]}&cmd=C._AB&sty=DCFFITA&" \
-              + "token={}&rt={}".format(get_token(), get__())
-        url_page = "&p={}"
-        page = 0
-        r_old = None
-        name = {}
-        while (True):
-            page += 1
-            r = self.requests_get(url + url_page.format(page), "个股代码")
-
-            if (r_old == r.text):
-                print("Total pages:{}".format(page-1))
-                break;
-            else:
-                r_old = r.text
-                # print (r.text)
-                shares = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
-                print (shares)
-                for i in shares:
-                    temp = i.split(',')
-                    # 去除B股, ST股, 3开头的创业板
-                    if ('B' in temp[2] or 'ST' in temp[2]):
-                        continue
-                    elif (temp[1].startswith('0') or temp[1].startswith('6')):
-                        name[temp[1] + temp[0]] = temp[2]
-        print (name)
-        print ("===> get_share_code END <===")
-        return name
-
+        print("===> get_all_blocks END <===")
 
     def get_all_shares(self, tickers=None):
         # tickers = ['6012161', '3000012', ] # 列表格式, 前6为为代码, 最后一位1表示上海, 2表示深圳
         if tickers is None:
-            tickers = self.get_share_code_from_file()
+            tickers = self.get_shares_from_file()
             if (len(tickers) == 0):
-                # try:
-                #     tickers = self.get_share_code()
-                # except Exception as e:
-                #     tickers = []
-                #     self.rd['no_tickers'] = e
-                #     print (e)
                 self.rd['no_tickers'] = "NO tickers found"
-                print ("===> get_all_shares NO tickers found! <===")
+                print("===> get_all_shares NO tickers found! <===")
                 return
 
-        print ("===> get_all_shares START <===")
+        print("===> get_all_shares START <===")
         for code in tickers:
             try:
+                #///////////////////////////// 打印进度, i / total. tickers 必须是list
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)
@@ -469,10 +539,9 @@ class collect_data(object):
                 # self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
-                print ("code:{}, err:{}".format(code, e))
+                print("code:{}, err:{}".format(code, e))
         self.rd['_____get_all_shares'] = self.time_str
-        print ("===> get_all_shares END <===")
-
+        print("===> get_all_shares END <===")
 
     def update_check(self):
         print("===> update_check, START! <===")
@@ -496,7 +565,7 @@ class collect_data(object):
                         lines = f.readlines()
                         for line in lines:
                             if "data_end" in line:
-                                kv = line.replace('\t','').strip().split(',')
+                                kv = line.replace('\t', '').strip().split(',')
                                 d[kv[0]] = kv[1]
                     # print (d)
                     if d['data_end'][:13] == self.time_str[:13]:
@@ -514,7 +583,7 @@ class collect_data(object):
         return result
 
     def update_finished(self):
-        print ("===> update_finished, START! <===")
+        print("===> update_finished, START! <===")
         # 最后的数据更新时间
         self.rd['data_end'] = self.time_str
         now = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime(
@@ -535,7 +604,6 @@ class collect_data(object):
             print("===> update_finished, END! <===")
 
 
-
 def collect_data_test(cd):
     if (cd.update_check()):
         # cd.get_all_indexs()
@@ -545,17 +613,18 @@ def collect_data_test(cd):
     # tickers = ['3003762','6000171']
     # cd.get_all_shares(tickers)
 
-def save_file_dl(cd):
-    cd.save_blocks_to_file()
-    cd.save_shares_to_file()
-
 if __name__ == '__main__':
     me = singleton.SingleInstance()
     cd = collect_data()
-    save_file_dl(cd)
-    # collect_data_test(cd)
 
-
-
-
-
+    if len(sys.argv) == 2:
+        print ("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
+        if sys.argv[1] == "shares_dl_csv":
+            cd.save_shares_to_file()
+        elif sys.argv[1] == "blocks_dl_csv":
+            cd.save_blocks_to_file()
+        elif sys.argv[1] == "blocks_folder":
+            cd.get_shares_in_blocks()
+    else:
+        # test purpose
+        collect_data_test(cd)

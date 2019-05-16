@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'gui_capital.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -89,18 +90,24 @@ class Ui_MainWindow(object):
         MainWindow.setMenuBar(self.menuBar)
         self.actionCollect = QtWidgets.QAction(MainWindow)
         self.actionCollect.setObjectName("actionCollect")
-        self.actionDlSave = QtWidgets.QAction(MainWindow)
-        self.actionDlSave.setObjectName("actionDlSave")
-        self.actionStickers = QtWidgets.QAction(MainWindow)
-        self.actionStickers.setObjectName("actionStickers")
+        self.actionSharesCsv = QtWidgets.QAction(MainWindow)
+        self.actionSharesCsv.setObjectName("actionSharesCsv")
+        self.actionBlocksCsv = QtWidgets.QAction(MainWindow)
+        self.actionBlocksCsv.setObjectName("actionBlocksCsv")
         self.actionOpen = QtWidgets.QAction(MainWindow)
         self.actionOpen.setObjectName("actionOpen")
         self.actionAutoFix = QtWidgets.QAction(MainWindow)
         self.actionAutoFix.setObjectName("actionAutoFix")
+        self.actionBlocksFolders = QtWidgets.QAction(MainWindow)
+        self.actionBlocksFolders.setObjectName("actionBlocksFolders")
+        self.menuTools.addAction(self.actionOpen)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction(self.actionSharesCsv)
+        self.menuTools.addAction(self.actionBlocksCsv)
+        self.menuTools.addAction(self.actionBlocksFolders)
+        self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionCollect)
         self.menuTools.addAction(self.actionAutoFix)
-        self.menuTools.addAction(self.actionOpen)
-        self.menuTools.addAction(self.actionDlSave)
         self.menuBar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -112,12 +119,15 @@ class Ui_MainWindow(object):
         self.buttonSwitch.setText(_translate("MainWindow", "个股/板块"))
         self.menuTools.setTitle(_translate("MainWindow", "Tools"))
         self.actionCollect.setText(_translate("MainWindow", "Collect Data"))
-        self.actionDlSave.setText(_translate("MainWindow", "DL_SAVE"))
-        self.actionStickers.setText(_translate("MainWindow", "Refresh Stickers"))
+        self.actionSharesCsv.setText(_translate("MainWindow", "tickers_dl.csv"))
+        self.actionBlocksCsv.setText(_translate("MainWindow", "blocks_dl.csv"))
         self.actionOpen.setText(_translate("MainWindow", "Open File"))
-        self.actionAutoFix.setText(_translate("MainWindow", "AutoFix"))
+        self.actionAutoFix.setText(_translate("MainWindow", "Auto Fix"))
+        self.actionBlocksFolders.setText(_translate("MainWindow", "Blocks Folder"))
+
 
 from pyqtgraph import GraphicsLayoutWidget
+
 
 if __name__ == "__main__":
     import sys
@@ -127,4 +137,3 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
-

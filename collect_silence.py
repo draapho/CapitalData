@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import smtplib
 import time
 import collect_data
@@ -16,7 +17,7 @@ def send_mail(blocks, shares):
     # 定义相关数据,请更换自己的真实数据
     smtpserver = 'smtp.gmail.com'
     sender = 'kim.yu.job@gmail.com'
-    #receiver可设置多个，使用“,”分隔
+    # receiver可设置多个，使用“,”分隔
     receiver = 'draapho@gmail.com'
     username = 'kim.yu.job@gmail.com'
     password = 'Y7bqQ4ahpjGF265S'
@@ -26,7 +27,8 @@ def send_mail(blocks, shares):
     # <p>股票资金流和价格数据自动更新完成, 详细结果请查看附件</p>
     # """
     # mail_body = MIMEText(boby, _subtype='html', _charset='utf-8')
-    boby = "股票资金流和价格数据自动更新完成, 详细结果请查看附件.\r\n尝试自动修复如下数据:\r\nblocks:{}\r\nshares:{}\r\n".format(blocks, shares)
+    boby = "股票资金流和价格数据自动更新完成, 详细结果请查看附件.\r\n尝试自动修复如下数据:\r\nblocks:{}\r\nshares:{}\r\n".format(
+        blocks, shares)
     mail_body = MIMEText(boby, _subtype='plain', _charset='utf-8')
     msg['Subject'] = Header("股票数据更新", 'utf-8')
     msg['From'] = sender
@@ -47,7 +49,7 @@ def send_mail(blocks, shares):
     # 登陆并发送邮件
     try:
         smtp = smtplib.SMTP(smtpserver)
-        #打开调试模式
+        # 打开调试模式
         # smtp.set_debuglevel(1)
         smtp.connect(smtpserver, 587)
         smtp.starttls()
@@ -61,15 +63,16 @@ def send_mail(blocks, shares):
         smtp.quit()
 
 
-
 def alarm_clock():
-    print ("alarm clock: 周一到周五 北京时间 16:00")
+    print("alarm clock: 周一到周五 北京时间 16:00")
     scheduler = BlockingScheduler()
-    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri', hour=16, minute=1, timezone='Asia/Shanghai')
+    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri',
+                      hour=16, minute=1, timezone='Asia/Shanghai')
     scheduler.start()
 
+
 def collect_data_process():
-    print ("start collect_data_silence")
+    print("start collect_data_silence")
     try:
         cd = collect_data.collect_data()
         if (cd.update_check()):
@@ -81,11 +84,13 @@ def collect_data_process():
             collect_autofix.fix_missed_data(blocks, shares)
             send_mail(blocks, shares)
     except Exception as e:
-        print (e)
-    print ("end collect_data_silence")
+        print(e)
+    print("end collect_data_silence")
+
 
 if __name__ == '__main__':
     me = singleton.SingleInstance()
     collect_data_process()
-    alarm_clock()
-
+    if len(sys.argv) == 2:
+        if sys.argv[1] == "alarm_clock":
+            alarm_clock()

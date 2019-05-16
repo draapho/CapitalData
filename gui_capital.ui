@@ -47,16 +47,7 @@
         </size>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout">
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
+        <property name="margin">
          <number>0</number>
         </property>
         <item>
@@ -73,16 +64,7 @@
       </widget>
       <widget class="QWidget" name="widget_2" native="true">
        <layout class="QGridLayout" name="gridLayout">
-        <property name="leftMargin">
-         <number>0</number>
-        </property>
-        <property name="topMargin">
-         <number>0</number>
-        </property>
-        <property name="rightMargin">
-         <number>0</number>
-        </property>
-        <property name="bottomMargin">
+        <property name="margin">
          <number>0</number>
         </property>
         <property name="spacing">
@@ -160,10 +142,14 @@
     <property name="title">
      <string>Tools</string>
     </property>
+    <addaction name="actionOpen"/>
+    <addaction name="separator"/>
+    <addaction name="actionSharesCsv"/>
+    <addaction name="actionBlocksCsv"/>
+    <addaction name="actionBlocksFolders"/>
+    <addaction name="separator"/>
     <addaction name="actionCollect"/>
     <addaction name="actionAutoFix"/>
-    <addaction name="actionOpen"/>
-    <addaction name="actionDlSave"/>
    </widget>
    <addaction name="menuTools"/>
   </widget>
@@ -172,14 +158,14 @@
     <string>Collect Data</string>
    </property>
   </action>
-  <action name="actionDlSave">
+  <action name="actionSharesCsv">
    <property name="text">
-    <string>DL_SAVE</string>
+    <string>tickers_dl.csv</string>
    </property>
   </action>
-  <action name="actionStickers">
+  <action name="actionBlocksCsv">
    <property name="text">
-    <string>Refresh Stickers</string>
+    <string>blocks_dl.csv</string>
    </property>
   </action>
   <action name="actionOpen">
@@ -189,7 +175,12 @@
   </action>
   <action name="actionAutoFix">
    <property name="text">
-    <string>AutoFix</string>
+    <string>Auto Fix</string>
+   </property>
+  </action>
+  <action name="actionBlocksFolders">
+   <property name="text">
+    <string>Blocks Folder</string>
    </property>
   </action>
  </widget>

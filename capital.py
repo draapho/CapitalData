@@ -22,20 +22,20 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
 
     def sys_init(self):
         # 变量
-        year = datetime.date.today().strftime('%Y')
         self.path = ".\\_data\\_info\\*.csv"
 
         # 菜单栏
         self.actionOpen.triggered.connect(self.openFile)
         self.actionCollect.triggered.connect(self.collectDate)
         self.actionAutoFix.triggered.connect(self.autoFix)
-        self.actionDlSave.triggered.connect(self.dlSave)
+        self.actionSharesCsv.triggered.connect(self.sharesCsv)
+        self.actionBlocksCsv.triggered.connect(self.blocksCsv)
+        self.actionBlocksFolders.triggered.connect(self.blocksFolder)
 
-        # 搜索文件列表
+        # 搜索文件列表, #////////////////////// 直接读文件
         try:
             self.tickers_code = glob.glob(self.path)
             if len(self.tickers_code) == 0:
-                year = year-1
                 self.tickers_code = glob.glob(self.path)
             self.file = ".\\_data\\_info\\0000011.csv"
             # print (self.tickers_code)
@@ -60,7 +60,7 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         except Exception as e:
             print (e)
 
-        # 自动补全
+        # 自动补全 # ///////////////////////////////////// 确定items_list 内容
         items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers_code]
         items_list.extend(self.names)
         # print (items_list)
@@ -68,16 +68,20 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         completer.activated.connect(self.completerActivated)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
+
         self.lineEditSticker.setCompleter(completer)
         self.lineEditSticker.setText(os.path.splitext(os.path.basename(self.file))[0])
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
-        self.blocks.loc[len(self.blocks)] = {'code': "0000011", 'name': "上证指数"}
-        self.blocks.loc[len(self.blocks)] = {'code': "3990012", 'name': "深圳指数"}
-        self.blocks.loc[len(self.blocks)] = {'code': "3990052", 'name': "中小板"}
-        self.blocks.loc[len(self.blocks)] = {'code': "3990062", 'name': "创业板"}
+        self.blocks = pd.DataFrame([{'code': "0000011", 'name': "上证指数"}, {'code': "3990012", 'name': "深圳指数"}, {'code': "3990052", 'name': "中小板"}, {'code': "3990062", 'name': "创业板"}])
+        blocks_csv = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
+        self.blocks = self.blocks.append(blocks_csv)
+        # self.blocks.loc[len(self.blocks)] = {'code': "0000011", 'name': "上证指数"}
+        # self.blocks.loc[len(self.blocks)] = {'code': "3990012", 'name': "深圳指数"}
+        # self.blocks.loc[len(self.blocks)] = {'code': "3990052", 'name': "中小板"}
+        # self.blocks.loc[len(self.blocks)] = {'code': "3990062", 'name': "创业板"}
+
         # print (self.blocks)
         self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
         # print (self.tickers)
@@ -109,12 +113,15 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
             name = self.blocks[self.blocks['name'].isin([name])]
             name = name.iloc[0][0]
         if ((name in list(self.blocks['code'])) or (name in list(self.tickers['code']))):
-            name = "{}\\{}.csv".format(os.path.dirname(self.file), name)
-            if os.path.exists(name):
-                print (name)
-                self.file = name
-                self.drawChart()
-                return
+            try:
+                name = "{}\\{}.csv".format(os.path.dirname(self.file), name)
+                if os.path.exists(name):
+                    print (name)
+                    self.file = name
+                    self.drawChart()
+                    return
+            except Exception as e:
+                print (e)
         print ("Not find {}".format(name))
         self.lineEditSticker.setText(os.path.splitext(os.path.basename(self.file))[0])
 
@@ -145,12 +152,14 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.p1.setMouseEnabled(x=True,y=False)  # 鼠标滚轮仅X轴缩放
         p2.setMouseEnabled(x=True,y=False)
         p2.setXLink(self.p1)                     # 同步缩放
-        self.p1.scene().sigMouseClicked.connect(self.mouseClicked)
+        # self.p1.scene().sigMouseClicked.connect(self.mouseClicked)
 
         # 导入数据
         item = KItem(quotes[['open', 'high', 'low', 'close']])
         self.p1Len = len(quotes)
         self.p1.addItem(item)
+        self.p1.enableAutoRange()
+        self.p1.setLimits(minXRange = 10, maxXRange = self.p1Len * 1.2, maxYRange = (quotes[['high']].max()['high'] - quotes[['low']].min()['low']) * 1.2)
         day5=quotes['close'].rolling(5).mean()      # 增加 5日线
         self.p1.plot(day5, pen="#ffffff")                # 白色
         day20=quotes['close'].rolling(20).mean()    # 增加 20日线
@@ -159,6 +168,7 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
         # p2.plot((quotes['small']))
         p2.addItem(item)
+        p2.enableAutoRange()
         day5=quotes['main'].rolling(5).mean()    # 增加 5日线
         p2.plot(day5, pen="#ffffff")
         day20=quotes['main'].rolling(20).mean()    # 增加 20日线
@@ -173,13 +183,20 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
 
     def collectDate(self):
         # os.system(get_cur_dir()+"\\collect_silence.bat")
-        subprocess.call('start /wait collect_silence.bat', shell=True)
+        # subprocess.call('start /wait collect_silence.bat', shell=True)
+        subprocess.call('python collect_silence.py', shell=False)
 
     def autoFix(self):
-        subprocess.call('start /wait collect_autofix.bat', shell=True)
+        subprocess.call('python collect_autofix.py', shell=False)
 
-    def dlSave(self):
-        subprocess.call('start /wait python collect_data.py', shell=True)
+    def sharesCsv(self):
+        subprocess.call('python collect_data.py "shares_dl_csv"', shell=False)
+
+    def blocksCsv(self):
+        subprocess.call('python collect_data.py "blocks_dl_csv"', shell=False)
+
+    def blocksFolder(self):
+        subprocess.call('python collect_data.py "blocks_folder"', shell=False)
 
     def completerActivated(self):
         self.codeChoosed()
@@ -203,14 +220,14 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 
-    def mouseClicked(self,evt):
-        pos = evt.pos() #/////////////////////
-        print(pos)
-        if self.p1.sceneBoundingRect().contains(pos):
-            mousePoint = self.p1.vb.mapSceneToView(pos)
-            index = int(mousePoint.x()+1/3)
-            if index >= 0 and index <self.p1Len:
-                print (index)
+    # def mouseClicked(self,evt):
+    #     pos = evt.pos()
+    #     print(pos)
+    #     if self.p1.sceneBoundingRect().contains(pos):
+    #         mousePoint = self.p1.vb.mapSceneToView(pos)
+    #         index = int(mousePoint.x()+1/3)
+    #         if index >= 0 and index <self.p1Len:
+    #             print (index)
 
 class PandasModel(QAbstractTableModel):
     """
@@ -252,15 +269,33 @@ class KItem(pg.GraphicsObject):
         self.picture = QPicture()
         p = QPainter(self.picture)
         w = 1 / 3.
+        last = None
         for t, (open, max, min, close) in enumerate(self.data.values):
             if open > close:
                 p.setBrush(pg.mkBrush('g'))
                 p.setPen(pg.mkPen('g'))
-            else:
+                p.drawLine(QPointF(t, min), QPointF(t, max))
+                p.drawRect(QRectF(t - w, open, w * 2, close - open))
+                last = close
+            elif open < close:
                 p.setBrush(pg.mkBrush('r'))
                 p.setPen(pg.mkPen('r'))
-            p.drawLine(QPointF(t, min), QPointF(t, max))
-            p.drawRect(QRectF(t - w, open, w * 2, close - open))
+                p.drawLine(QPointF(t, min), QPointF(t, max))
+                p.drawRect(QRectF(t - w, open, w * 2, close - open))
+                last = close
+            elif open == close:
+                # print (t, (open, max, min, close))
+                p.setBrush(pg.mkBrush('w'))
+                p.setPen(pg.mkPen('w'))
+                if (min != max):
+                    p.drawLine(QPointF(t, min), QPointF(t, max))
+                p.drawLine(QPointF(t - w, close), QPointF(t+w, close))
+                last = close
+            elif last != None: # open or close is None
+                # print (t, (open, max, min, close))
+                p.setBrush(pg.mkBrush('y'))
+                p.setPen(pg.mkPen('y'))
+                p.drawLine(QPointF(t - w, last), QPointF(t+w, last))
         p.end()
 
     def paint(self, p, *args):

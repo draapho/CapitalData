@@ -37,14 +37,15 @@ def get_token():
     return token
 
 def get_rt():
-    min = 51575000
-    max = 51579999
-    rt = random.randint(min, max)
-    return str(rt)
+    # min = 51675001
+    # max = 51932721
+    # rt = random.randint(min, max)
+    # return str(rt)
+    return "51932721"
 
 def get__():
-    min = 1547200000000
-    max = 1547299999999
-    underline = random.randint(min, max)
-    return str(underline)
-
+    # min = 1557200000001
+    # max = 1557981070462
+    # underline = random.randint(min, max)
+    # return str(underline)
+    return "1557981070462"
