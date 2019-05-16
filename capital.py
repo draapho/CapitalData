@@ -23,7 +23,7 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
     def sys_init(self):
         # 变量
         year = datetime.date.today().strftime('%Y')
-        self.path = ".\\_data\\{}\\_info\\*.csv"
+        self.path = ".\\_data\\_info\\*.csv"
 
         # 菜单栏
         self.actionOpen.triggered.connect(self.openFile)
@@ -33,11 +33,11 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
 
         # 搜索文件列表
         try:
-            self.tickers_code = glob.glob(self.path.format(year))
+            self.tickers_code = glob.glob(self.path)
             if len(self.tickers_code) == 0:
                 year = year-1
-                self.tickers_code = glob.glob(self.path.format(year))
-            self.file = ".\\_data\\{}\\_info\\0000011.csv".format(year)
+                self.tickers_code = glob.glob(self.path)
+            self.file = ".\\_data\\_info\\0000011.csv"
             # print (self.tickers_code)
         except Exception as e:
             self.tickers_code = []

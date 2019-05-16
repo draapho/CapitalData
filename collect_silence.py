@@ -65,7 +65,7 @@ def send_mail(blocks, shares):
 def alarm_clock():
     print ("alarm clock: 周一到周五 北京时间 16:00")
     scheduler = BlockingScheduler()
-    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri', hour=16, timezone='Asia/Shanghai')
+    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri', hour=16, minute=1, timezone='Asia/Shanghai')
     scheduler.start()
 
 def collect_data_process():

@@ -65,7 +65,7 @@ class collect_data(object):
             self.rd["detail_capital_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(self.url, e, detail_capital)
             print ("detail_capital_{}, err:{}\r\ninfo:{}".format(id, e, detail_capital))
             return None
-            
+
         # 单日股价明细, 走势图. 网址: "http://quote.eastmoney.com/zs000001.html"
         url = "http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?" \
               "rtntype=5&cb=jQuery18307447134581131771_1547432773503&type=r&iscr=false&" \
@@ -206,7 +206,7 @@ class collect_data(object):
             # ymd[2] = ymd[2].split()[0]
             # print (ymd)
         if (path is None):
-            path = get_cur_dir()+"\\_data\\{}\\_info\\".format(ymd[0])
+            path = get_cur_dir()+"\\_data\\_info\\"
         fileName += ".csv"
         # print(path)
         # print(info)
@@ -221,7 +221,7 @@ class collect_data(object):
 
     def save_detail(self, detail, fileName, path=None):
         if detail is None:
-            print ("fail to save_detail. fileName: {}".format(fileName))    
+            print ("fail to save_detail. fileName: {}".format(fileName))
         if self.time_str is None:
             raise Exception("save_details failed! NO time information.")
         else:
@@ -262,9 +262,9 @@ class collect_data(object):
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)
-                d = self.get_day_detail(code)
-                # print(d)
-                self.save_detail(d, code)
+                # d = self.get_day_detail(code)
+                # # print(d)
+                # self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
@@ -374,9 +374,9 @@ class collect_data(object):
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)
-                d = self.get_day_detail(code)
-                # print(d)
-                self.save_detail(d, code)
+                # d = self.get_day_detail(code)
+                # # print(d)
+                # self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
@@ -464,9 +464,9 @@ class collect_data(object):
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)
-                d = self.get_day_detail(code)
-                # print(d)
-                self.save_detail(d, code)
+                # d = self.get_day_detail(code)
+                # # print(d)
+                # self.save_detail(d, code)
             except Exception as e:
                 self.rd[code] = e
                 print ("code:{}, err:{}".format(code, e))
