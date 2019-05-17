@@ -427,7 +427,7 @@ class collect_data(object):
                 if (key in valid_shares):
                     i = i + 1
                     writer.writerow([key, value])
-        print("saved {} shares in {} to file: {}".format(i, block, path))
+        print("saved {} shares to file: {}".format(i, path))
 
     def get_shares_in_blocks(self):
         print("===> get_shares_in_blocks START <===")
@@ -439,8 +439,12 @@ class collect_data(object):
               + "token={}&_={}".format(get_token(), get__())
         url_cmd_page = "&cmd=C.{}&p={}"
 
+        total = len(blocks)
+        idx = 0
+
         for cmd, block in blocks.items():
-            #///////////////////////////// 打印进度, i / total.
+            idx += 1
+            print("===> {}/{}\tin get_shares_in_blocks".format(idx, total))
             name = {}
             r_old = None
             page = 0
@@ -449,8 +453,8 @@ class collect_data(object):
                 r = self.requests_get(
                     url + url_cmd_page.format(cmd, page), "个股代码")
                 if (r_old == r.text):
-                    print("{} {} have pages:{}".format(cmd, block, page - 1))
-                    print(len(name), name)
+                    print("{} {} have pages:{}, shares:{}".format(cmd, block, page - 1, len(name)))
+                    # print(name)
                     self.save_shares_in_blocks(cmd, name)
                     break
                 else:
@@ -503,9 +507,13 @@ class collect_data(object):
 
         # 板块信息
         print("===> get_all_blocks START <===")
+        total = len(blocks)
+        idx = 0
+
         for code in blocks:
             try:
-                #///////////////////////////// 打印进度, i / total.
+                idx += 1
+                print("===> {}/{}\tin get_all_blocks".format(idx, total))
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)
@@ -528,9 +536,13 @@ class collect_data(object):
                 return
 
         print("===> get_all_shares START <===")
+        total = len(tickers)
+        idx = 0
+
         for code in tickers:
             try:
-                #///////////////////////////// 打印进度, i / total. tickers 必须是list
+                idx += 1
+                print("===> {}/{}\tin get_all_shares".format(idx, total))
                 l = self.get_code_info(code)
                 # print(l)
                 self.save_info(l, code)

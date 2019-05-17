@@ -47,7 +47,16 @@
         </size>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout">
-        <property name="margin">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
          <number>0</number>
         </property>
         <item>
@@ -64,7 +73,16 @@
       </widget>
       <widget class="QWidget" name="widget_2" native="true">
        <layout class="QGridLayout" name="gridLayout">
-        <property name="margin">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
          <number>0</number>
         </property>
         <property name="spacing">
@@ -142,45 +160,51 @@
     <property name="title">
      <string>Tools</string>
     </property>
+    <addaction name="actionCollect"/>
+    <addaction name="actionAutoFix"/>
+    <addaction name="separator"/>
     <addaction name="actionOpen"/>
+    <addaction name="actionParameter"/>
     <addaction name="separator"/>
     <addaction name="actionSharesCsv"/>
     <addaction name="actionBlocksCsv"/>
     <addaction name="actionBlocksFolders"/>
-    <addaction name="separator"/>
-    <addaction name="actionCollect"/>
-    <addaction name="actionAutoFix"/>
    </widget>
    <addaction name="menuTools"/>
   </widget>
   <action name="actionCollect">
    <property name="text">
-    <string>Collect Data</string>
+    <string>Run collect_data</string>
    </property>
   </action>
   <action name="actionSharesCsv">
    <property name="text">
-    <string>tickers_dl.csv</string>
+    <string>Get tickers_dl.csv</string>
    </property>
   </action>
   <action name="actionBlocksCsv">
    <property name="text">
-    <string>blocks_dl.csv</string>
+    <string>Get blocks_dl.csv</string>
    </property>
   </action>
   <action name="actionOpen">
    <property name="text">
-    <string>Open File</string>
+    <string>Open _para folder</string>
    </property>
   </action>
   <action name="actionAutoFix">
    <property name="text">
-    <string>Auto Fix</string>
+    <string>Run collect_autofix</string>
    </property>
   </action>
   <action name="actionBlocksFolders">
    <property name="text">
-    <string>Blocks Folder</string>
+    <string>Get Blocks folder</string>
+   </property>
+  </action>
+  <action name="actionParameter">
+   <property name="text">
+    <string>Open parameter.ini</string>
    </property>
   </action>
  </widget>

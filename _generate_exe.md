@@ -9,5 +9,6 @@ pyinstaller.exe --windowed capital.py
 
 generate python UI from xxx.ui file
 ```
-pyuic5.exe -x -o gui_capital.py gui_capital.ui
+pyuic5.exe -x -o gui_main.py gui_main.ui
+pyuic5.exe -x -o gui_sub.py gui_sub.ui
 ```

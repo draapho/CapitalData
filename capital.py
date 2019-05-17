@@ -1,30 +1,38 @@
 import sys
 import os
-import glob
-import gui_capital
+import gui_main
+import gui_sub
 import subprocess
 import datetime
 import csv
 import numpy as np
 import pandas as pd
-import pyqtgraph as pg
 from myutil import *
+from gui_misc import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 
-class capital(QMainWindow, gui_capital.Ui_MainWindow):
-    def __init__(self):
+class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
+    def __init__(self, block=None):
         super(self.__class__, self).__init__()
         self.setupUi(self)
         self.sys_init()
 
     def sys_init(self):
         # 变量
-        self.path = ".\\_data\\_info\\*.csv"
+        # self.file = ".\\_data\\_info\\0000011.csv"
+        self.file = ".\\_data\\_info\\"
+        self.index = {
+                    "0000011": "上证指数",
+                    "3990012": "深圳指数",
+                    "3990052": "中小板",
+                    "3990062": "创业板"
+                }
 
         # 菜单栏
+        self.actionParameter.triggered.connect(self.setParameter)
         self.actionOpen.triggered.connect(self.openFile)
         self.actionCollect.triggered.connect(self.collectDate)
         self.actionAutoFix.triggered.connect(self.autoFix)
@@ -32,37 +40,48 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.actionBlocksCsv.triggered.connect(self.blocksCsv)
         self.actionBlocksFolders.triggered.connect(self.blocksFolder)
 
-        # 搜索文件列表, #////////////////////// 直接读文件
         try:
-            self.tickers_code = glob.glob(self.path)
-            if len(self.tickers_code) == 0:
-                self.tickers_code = glob.glob(self.path)
-            self.file = ".\\_data\\_info\\0000011.csv"
-            # print (self.tickers_code)
+            with open( ".\\_para\\parameter.ini", 'r', encoding="utf-8") as csv_file:
+                reader = csv.reader(skip_comments(csv_file))
+                self.para = dict(reader)
         except Exception as e:
-            self.tickers_code = []
-            self.file = ""
+            self.para = {}
             print (e)
+        print(self.para)
 
-        self.names = ["上证指数","深圳指数","中小板","创业板"]
+        # # 搜索文件列表
+        # self.path = ".\\_data\\_info\\*.csv"
+        # try:
+        #     self.tickers_code = glob.glob(self.path)
+        #     if len(self.tickers_code) == 0:
+        #         self.tickers_code = glob.glob(self.path)
+        #     # print (self.tickers_code)
+        # except Exception as e:
+        #     self.tickers_code = []
+        #     self.file = ""
+        #     print (e)
+        # items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers_code]
+        # print (items_list)
+
+        # 加载代码和名称, 用于自动匹配输入
+        items_list = list(self.index.values())
         # 读取csv文件获取股票名称
         try:
             with open( ".\\_para\\tickers.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                self.names.extend(list(dict(reader).values()))
+                items_list.extend(list(dict(reader).keys()))
+                items_list.extend(list(dict(reader).values()))
         except Exception as e:
             print (e)
         # 读取csv文件获取板块名称
         try:
             with open( ".\\_para\\blocks.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                self.names.extend(list(dict(reader).values()))
+                items_list.extend(list(dict(reader).keys()))
+                items_list.extend(list(dict(reader).values()))
         except Exception as e:
             print (e)
 
-        # 自动补全 # ///////////////////////////////////// 确定items_list 内容
-        items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers_code]
-        items_list.extend(self.names)
         # print (items_list)
         completer = QCompleter(items_list)
         completer.activated.connect(self.completerActivated)
@@ -74,14 +93,9 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        self.blocks = pd.DataFrame([{'code': "0000011", 'name': "上证指数"}, {'code': "3990012", 'name': "深圳指数"}, {'code': "3990052", 'name': "中小板"}, {'code': "3990062", 'name': "创业板"}])
+        self.blocks = pd.DataFrame(self.index.items(), columns=['code', 'name'])
         blocks_csv = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
         self.blocks = self.blocks.append(blocks_csv)
-        # self.blocks.loc[len(self.blocks)] = {'code': "0000011", 'name': "上证指数"}
-        # self.blocks.loc[len(self.blocks)] = {'code': "3990012", 'name': "深圳指数"}
-        # self.blocks.loc[len(self.blocks)] = {'code': "3990052", 'name': "中小板"}
-        # self.blocks.loc[len(self.blocks)] = {'code': "3990062", 'name': "创业板"}
-
         # print (self.blocks)
         self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
         # print (self.tickers)
@@ -90,6 +104,7 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.buttonSwitch.clicked.connect(self.buttonClicked)
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tableView.clicked.connect(self.tableClicked)
+        self.tableView.doubleClicked.connect(self.tableDoubleClicked)
 
         # 初始化GUI
         self.isTableBlocks = True
@@ -113,17 +128,8 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
             name = self.blocks[self.blocks['name'].isin([name])]
             name = name.iloc[0][0]
         if ((name in list(self.blocks['code'])) or (name in list(self.tickers['code']))):
-            try:
-                name = "{}\\{}.csv".format(os.path.dirname(self.file), name)
-                if os.path.exists(name):
-                    print (name)
-                    self.file = name
-                    self.drawChart()
-                    return
-            except Exception as e:
-                print (e)
-        print ("Not find {}".format(name))
-        self.lineEditSticker.setText(os.path.splitext(os.path.basename(self.file))[0])
+            self.file = "{}\\{}.csv".format(os.path.dirname(self.file), name)
+            self.drawChart()
 
     def drawChart(self):
         # 数据的最终格式:
@@ -137,8 +143,25 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
                           ('sin', '<f4'),('sout', '<f4'),('small', '<f4'),('sper', 'S'),
                           ])
         # 读取数据
-        quotes = pd.read_csv(self.file, header=None, names=columns, dtype=dtype, na_values= '-')
-        quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
+        try:
+            kNumber = self.para.get('K_NUMBER', 'all')
+            if kNumber == '1y':
+                n_end = 256
+            elif kNumber == '3m':
+                n_end = 64
+            elif kNumber == '1m':
+                n_end = 20
+            else:
+                n_end = 0
+            quotes = loadData(self.file, n_end, n_end, names=columns, dtype=dtype, na_values= '-')
+            # quotes = pd.read_csv(self.file, header=None, engine='c', names=columns, dtype=dtype, na_values= '-')
+            quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
+            # print (quotes)
+        except Exception as e:
+            print("open {} file failed!".format(self.file))
+            print(e)
+            self.graphicsView.clear()
+            return
         # print(quotes)
 
         # 作图初始化
@@ -178,8 +201,18 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
 
     # ======= operation =======
+    def setParameter(self):
+        os.startfile('.\\_para\\parameter.ini')
+        # 加载初始化参数
+        try:
+            with open( ".\\_para\\parameter.ini", 'r', encoding="utf-8") as csv_file:
+                reader = csv.reader(skip_comments(csv_file))
+                para = dict(reader)
+        except Exception as e:
+            print (e)
+
     def openFile(self):
-        os.startfile('.\\')
+        os.startfile('.\\_para\\')
 
     def collectDate(self):
         # os.system(get_cur_dir()+"\\collect_silence.bat")
@@ -220,6 +253,17 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 
+    def tableDoubleClicked(self, mi):
+        if (self.isTableBlocks):
+            # block = self.blocks.values[mi.row()][0]
+            block = self.blocks.values[mi.row()]
+            if block[0] not in self.index:
+                dialog = GuiSub(block, self.para, parent=self)
+                dialog.show()
+        else:
+            pass
+            # /////////////////////////显示基本面
+
     # def mouseClicked(self,evt):
     #     pos = evt.pos()
     #     print(pos)
@@ -229,156 +273,36 @@ class capital(QMainWindow, gui_capital.Ui_MainWindow):
     #         if index >= 0 and index <self.p1Len:
     #             print (index)
 
-class PandasModel(QAbstractTableModel):
-    """
-    Class to populate a table view with a pandas dataframe
-    """
-    def __init__(self, data, parent=None):
-        QAbstractTableModel.__init__(self, parent)
-        self._data = data
 
-    def rowCount(self, parent=None):
-        return len(self._data.values)
-        # return self._data.shape[0]
+class GuiSub(QDialog,gui_sub.Ui_Dialog):
+    def __init__(self, block, para={}, parent=None):
+        super(self.__class__, self).__init__(parent)
+        self.setupUi(self)
+        self.block_code = block[0]
+        self.block_name = block[1]
+        self.spara = para
+        self.sys_init_block()
 
-    def columnCount(self, parent=None):
-        return self._data.columns.size
-        # return self._data.shape[1]
+    def sys_init_block(self):
+        self.sfile = ".\\_data\\_info\\"
 
-    def data(self, index, role=Qt.DisplayRole):
-        if index.isValid():
-            if role == Qt.DisplayRole:
-                return str(self._data.values[index.row()][index.column()])
-        return None
+        # 读取列表
+        self.stickers = pd.read_csv(".\\_para\\blocks\\{}.csv".format(self.block_code), header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
+        print (self.tickers)
+        # 排序 /////////////////////////////
 
-    def headerData(self, col, orientation, role):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self._data.columns[col]
-        return None
+        # 点击操作
+        # self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
+        # self.tableView.clicked.connect(self.tableClicked)
 
-
-class KItem(pg.GraphicsObject):
-    def __init__(self, data):
-        pg.GraphicsObject.__init__(self)
-
-        # 生成横轴的刻度名字
-        self.data = data  ## data must have fields: open, max, min, close
-        self.generatePicture()
-
-    def generatePicture(self):
-        self.picture = QPicture()
-        p = QPainter(self.picture)
-        w = 1 / 3.
-        last = None
-        for t, (open, max, min, close) in enumerate(self.data.values):
-            if open > close:
-                p.setBrush(pg.mkBrush('g'))
-                p.setPen(pg.mkPen('g'))
-                p.drawLine(QPointF(t, min), QPointF(t, max))
-                p.drawRect(QRectF(t - w, open, w * 2, close - open))
-                last = close
-            elif open < close:
-                p.setBrush(pg.mkBrush('r'))
-                p.setPen(pg.mkPen('r'))
-                p.drawLine(QPointF(t, min), QPointF(t, max))
-                p.drawRect(QRectF(t - w, open, w * 2, close - open))
-                last = close
-            elif open == close:
-                # print (t, (open, max, min, close))
-                p.setBrush(pg.mkBrush('w'))
-                p.setPen(pg.mkPen('w'))
-                if (min != max):
-                    p.drawLine(QPointF(t, min), QPointF(t, max))
-                p.drawLine(QPointF(t - w, close), QPointF(t+w, close))
-                last = close
-            elif last != None: # open or close is None
-                # print (t, (open, max, min, close))
-                p.setBrush(pg.mkBrush('y'))
-                p.setPen(pg.mkPen('y'))
-                p.drawLine(QPointF(t - w, last), QPointF(t+w, last))
-        p.end()
-
-    def paint(self, p, *args):
-        p.drawPicture(0, 0, self.picture)
-
-    def boundingRect(self):
-        return QRectF(self.picture.boundingRect())
+        # 初始化GUI
+        # self.set_table()
+        # self.drawChart()
 
 
-class VItem(pg.GraphicsObject):
-    def __init__(self, data):
-        pg.GraphicsObject.__init__(self)
-
-        # 生成横轴的刻度名字
-        self.data = data  ## data must have fields: vol2, main, xlarge, middle, open, close
-        self.generatePicture()
-
-    def generatePicture(self):
-        self.picture = QPicture()
-        p = QPainter(self.picture)
-        w = 1 / 3.
-        # about color: https://doc.qt.io/archives/qtjambi-4.5.2_01/com/trolltech/qt/core/Qt.GlobalColor.html
-        for t, (v, main, x, m, o, c) in enumerate(self.data.values):
-            p.setPen(pg.mkPen("#ffff00"))
-            p.setBrush(pg.mkBrush("#ffff00"))   # yellow, 中等资金
-            p.drawRect(QRectF(t, 0, w, m))
-            if (abs(x) > abs(main)):
-                p.setPen(pg.mkPen("#800000"))
-                p.setBrush(pg.mkBrush("#800000"))   # dark red, 超大
-                p.drawRect(QRectF(t-w, 0, w, x))
-                p.setPen(pg.mkPen("#ff00ff"))
-                p.setBrush(pg.mkBrush("#ff00ff"))  # magenta, 主力资金
-                p.drawRect(QRectF(t - w, 0, w, main))
-            else:
-                p.setPen(pg.mkPen("#ff00ff"))
-                p.setBrush(pg.mkBrush("#ff00ff"))  # magenta, 主力资金
-                p.drawRect(QRectF(t - w, 0, w, main))
-                p.setPen(pg.mkPen("#800000"))
-                p.setBrush(pg.mkBrush("#800000"))   # dark red, 超大
-                p.drawRect(QRectF(t-w, 0, w, x))
-            # 主力资金(main) = 超大资金(x) + 大额资金(l)
-            # 小额资金 + 中等资金 + 大额资金 + 超大资金 = 0
-
-            p.setBrush(Qt.NoBrush)
-            if (c-o < 0) and (main > 0):
-                p.setPen(pg.mkPen('r'))
-            else:
-                p.setPen(pg.mkPen("#a0a0a4"))
-            p.drawRect(QRectF(t-w, -v, 2*w, 2*v))   # 百分比化的交易量. 极值为资金流占比达到10%
-        p.end()
-
-    def paint(self, p, *args):
-        p.drawPicture(0, 0, self.picture)
-
-    def boundingRect(self):
-        return QRectF(self.picture.boundingRect())
-
-
-class DateAxisItem(pg.AxisItem):
-    def __init__(self, date, *args, **kwargs):
-        super(DateAxisItem, self).__init__(*args, **kwargs)
-        self.date = date
-
-    def tickStrings(self, values, scale, spacing):
-        at = []
-        for value in values:
-            v = int(value)
-            if (v >= 0) and (v < len(self.date)):
-                temp = self.date[v].split('-')
-                at.append(temp[1]+temp[2])
-            else:
-                at.append("")
-        return at
-
-class VolumnAxisItem(pg.AxisItem):
-    def __init__(self, *args, **kwargs):
-        super(VolumnAxisItem, self).__init__(*args, **kwargs)
-
-    def tickStrings(self, values, scale, spacing):
-        return [format(value, '.0e') for value in values]
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    gui_action = capital()
+    gui_action = GuiMain()
     gui_action.show()
     sys.exit(app.exec_())

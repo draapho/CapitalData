@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'gui_capital.ui'
+# Form implementation generated from reading ui file 'gui_main.ui'
 #
-# Created by: PyQt5 UI code generator 5.12
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -100,14 +99,17 @@ class Ui_MainWindow(object):
         self.actionAutoFix.setObjectName("actionAutoFix")
         self.actionBlocksFolders = QtWidgets.QAction(MainWindow)
         self.actionBlocksFolders.setObjectName("actionBlocksFolders")
+        self.actionParameter = QtWidgets.QAction(MainWindow)
+        self.actionParameter.setObjectName("actionParameter")
+        self.menuTools.addAction(self.actionCollect)
+        self.menuTools.addAction(self.actionAutoFix)
+        self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionOpen)
+        self.menuTools.addAction(self.actionParameter)
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionSharesCsv)
         self.menuTools.addAction(self.actionBlocksCsv)
         self.menuTools.addAction(self.actionBlocksFolders)
-        self.menuTools.addSeparator()
-        self.menuTools.addAction(self.actionCollect)
-        self.menuTools.addAction(self.actionAutoFix)
         self.menuBar.addAction(self.menuTools.menuAction())
 
         self.retranslateUi(MainWindow)
@@ -118,16 +120,15 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "CapitalData"))
         self.buttonSwitch.setText(_translate("MainWindow", "个股/板块"))
         self.menuTools.setTitle(_translate("MainWindow", "Tools"))
-        self.actionCollect.setText(_translate("MainWindow", "Collect Data"))
-        self.actionSharesCsv.setText(_translate("MainWindow", "tickers_dl.csv"))
-        self.actionBlocksCsv.setText(_translate("MainWindow", "blocks_dl.csv"))
-        self.actionOpen.setText(_translate("MainWindow", "Open File"))
-        self.actionAutoFix.setText(_translate("MainWindow", "Auto Fix"))
-        self.actionBlocksFolders.setText(_translate("MainWindow", "Blocks Folder"))
-
+        self.actionCollect.setText(_translate("MainWindow", "Run collect_data"))
+        self.actionSharesCsv.setText(_translate("MainWindow", "Get tickers_dl.csv"))
+        self.actionBlocksCsv.setText(_translate("MainWindow", "Get blocks_dl.csv"))
+        self.actionOpen.setText(_translate("MainWindow", "Open _para folder"))
+        self.actionAutoFix.setText(_translate("MainWindow", "Run collect_autofix"))
+        self.actionBlocksFolders.setText(_translate("MainWindow", "Get Blocks folder"))
+        self.actionParameter.setText(_translate("MainWindow", "Open parameter.ini"))
 
 from pyqtgraph import GraphicsLayoutWidget
-
 
 if __name__ == "__main__":
     import sys
@@ -137,3 +138,4 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
+
