@@ -1,8 +1,82 @@
-
-from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+from myutil import *
+import numpy as np
 import pyqtgraph as pg
+
+
+def drawChart(graphicsView, file, kNumber='all', name=''):
+    # 数据的最终格式:
+    # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
+    columns = ['date', 'time', 'market', 'code', 'name', 'close', 'open', 'high', 'low', 'volume', 'vol2', 'main',
+               'xin', 'xout', 'xlarge', 'xper', 'lin', 'lout', 'large', 'lper', 'min', 'mout', 'middle', 'mper', 'sin',
+               'sout', 'small', 'sper']
+    dtype = np.dtype([('date', 'S'), ('time', 'S'), ('market', 'S'), ('code', 'S'), ('name', 'S'),
+                      ('close', '<f4'), ('open', '<f4'), ('high', '<f4'), ('low', '<f4'), ('volume', '<f4'),
+                      ('vol2', '<f4'), ('main', '<f4'),
+                      ('xin', '<f4'), ('xout', '<f4'), ('xlarge', '<f4'), ('xper', 'S'),
+                      ('lin', '<f4'), ('lout', '<f4'), ('large', '<f4'), ('lper', 'S'),
+                      ('min', '<f4'), ('mout', '<f4'), ('middle', '<f4'), ('mper', 'S'),
+                      ('sin', '<f4'), ('sout', '<f4'), ('small', '<f4'), ('sper', 'S'),
+                      ])
+    # 读取数据
+    try:
+        if kNumber == '1y':
+            n_end = 256
+        elif kNumber == '3m':
+            n_end = 64
+        elif kNumber == '1m':
+            n_end = 20
+        else:
+            n_end = 0
+        quotes = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
+        # quotes = pd.read_csv(file, header=None, engine='c', names=columns, dtype=dtype, na_values= '-')
+        quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
+        # print (quotes)
+    except Exception as e:
+        print("open {} file failed!".format(file))
+        print(e)
+        graphicsView.clear()
+        return
+    # print(quotes)
+
+    # 作图初始化
+    graphicsView.clear()
+    p1 = graphicsView.addPlot(row=0, col=0,
+                                   title="{} {}".format(os.path.splitext(os.path.basename(file))[0], name),
+                                   axisItems={'bottom': DateAxisItem(list(quotes['date']), orientation='bottom')})
+    p2 = graphicsView.addPlot(row=1, col=0,
+                                   axisItems={'left': VolumnAxisItem(orientation='left')})
+    p2.hideAxis('bottom')
+    p1.setMouseEnabled(x=True, y=False)  # 鼠标滚轮仅X轴缩放
+    p2.setMouseEnabled(x=True, y=False)
+
+    # 设置缩放
+    p1Len = len(quotes)
+    p1.setRange(yRange=[quotes[['low']].min()['low'], quotes[['high']].max()['high']])
+    p1.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
+    p2.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
+    p1.setXLink(p2)  # 同步缩放
+    p2.setXLink(p1)  # 同步缩放
+
+    # 导入数据
+    item = KItem(quotes[['open', 'high', 'low', 'close']])
+    p1.addItem(item)
+    day5 = quotes['close'].rolling(5).mean()  # 增加 5日线
+    p1.plot(day5, pen="#ffffff")  # 白色
+    day20 = quotes['close'].rolling(20).mean()  # 增加 20日线
+    p1.plot(day20, pen="#00ffff")  # 青色
+
+    item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
+    p2.addItem(item)
+    day5 = quotes['main'].rolling(5).mean()  # 增加 5日线
+    p2.plot(day5, pen="#ffffff")
+    day20 = quotes['main'].rolling(20).mean()  # 增加 20日线
+    p2.plot(day20, pen="#00ffff")
+
+    # # 参考1, 使用pyqtgraph: https://zmister.com/archives/187.html
+    # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
+
 
 class PandasModel(QAbstractTableModel):
     """

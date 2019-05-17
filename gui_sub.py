@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(800, 500)
+        Dialog.resize(700, 400)
         self.horizontalLayout = QtWidgets.QHBoxLayout(Dialog)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.splitter = QtWidgets.QSplitter(Dialog)
@@ -29,7 +29,7 @@ class Ui_Dialog(object):
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setObjectName("verticalLayout")
         self.graphicsView = GraphicsLayoutWidget(self.widget)
-        self.graphicsView.setMinimumSize(QtCore.QSize(550, 0))
+        self.graphicsView.setMinimumSize(QtCore.QSize(400, 0))
         self.graphicsView.setObjectName("graphicsView")
         self.verticalLayout.addWidget(self.graphicsView)
         self.widget_2 = QtWidgets.QWidget(self.splitter)

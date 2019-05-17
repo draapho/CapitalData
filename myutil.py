@@ -56,7 +56,7 @@ data = loadData('test.txt', N_to_end, N_lines) # 从倒数第N_to_end行数开�
 print data
 """
 def loadData(file_path, skip_n_end, rows_n, **kwargs):
-    lines = sum(1 for _ in csv.reader(open(file_path)))
+    lines = sum(1 for _ in csv.reader(open(file_path,'r', encoding='UTF-8')))
     # print lines
     if (skip_n_end == 0):
         skip_n_end = lines

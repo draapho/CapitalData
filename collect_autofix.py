@@ -41,8 +41,8 @@ def fix_missed_data(blocks, shares):
         cd = collect_data.collect_data()
         if (cd.update_check() is False):
             print ("===> start fix_missed_data <===")
-            # if len(blocks):
-            #     cd.get_all_blocks(blocks)
+            if len(blocks):
+                cd.get_all_blocks(blocks)
             if len(shares):
                 cd.get_all_shares(shares)
 

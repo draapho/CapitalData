@@ -497,7 +497,7 @@ class collect_data(object):
         print("===> get_all_indexs END <===")
 
     def get_all_blocks(self, blocks=None):
-        # blocks = {'BK04561': '家电行业', 'BK04771': '酿酒行业',} # 字典格式
+        # blocks = ['BK04561', 'BK04771'] # 列表格式
         if blocks is None:
             blocks = self.get_blocks_from_file()
             if (len(blocks) == 0):
