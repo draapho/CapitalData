@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import collect_data
-import datetime
-import time
-import pytz
 from myutil import *
 from tendo import singleton
 
 
 def check_report():
     print ("===> start check_report <===")
-    file = "./_para/report.txt"
+    file = get_report_file()
     process = None
     with open(file, 'r') as f:
         for line in f.readlines():
@@ -18,22 +15,23 @@ def check_report():
                 process = "indexs"
             elif line.startswith("_____get_all_indexs"):
                 process = "blocks"
-                dict_blocks = {}
+                list_blocks = []
             elif line.startswith("_____get_all_blocks"):
                 process = "shares"
                 list_shares= []
             elif line.startswith("_____get_all_shares"):
                 process = "end"
             elif line.startswith("_____autofix_data"):
-                dict_blocks = {}
+                list_blocks = []
                 list_shares = []
-            if process == "shares":
-                if "'NoneType' object is not subscriptable" in line:
+            if process == "blocks":
+                if "===>FAILED!" in line:
+                    list_blocks.append(line.split(",")[0])
+            elif process == "shares":
+                if "===>FAILED!" in line:
                     list_shares.append(line.split(",")[0])
-                elif "FAILED" in line:
-                    list_shares.append(line.split(",")[0])
-    print ("missed blocks:{}, missed shares:{}".format(dict_blocks, list_shares))
-    return dict_blocks, list_shares
+    print ("missed blocks:{}, missed shares:{}".format(list_blocks, list_shares))
+    return list_blocks, list_shares
 
 
 def fix_missed_data(blocks, shares):
@@ -48,7 +46,7 @@ def fix_missed_data(blocks, shares):
 
             # 更新report文件
             with open(get_report_file(), 'a') as f:
-                f.write("{},\tblocks:{}, shares:{}\r".format("_____autofix_data", blocks, shares))
+                f.write("_____autofix_data\rblocks:{}\rshares:{}\r".format(blocks, shares))
             print ("===> end fix_missed_data <===")
             return
     print("===> NOT need fix_missed_data <===")

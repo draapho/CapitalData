@@ -27,8 +27,11 @@ def send_mail(blocks, shares):
     # <p>股票资金流和价格数据自动更新完成, 详细结果请查看附件</p>
     # """
     # mail_body = MIMEText(boby, _subtype='html', _charset='utf-8')
-    boby = "股票资金流和价格数据自动更新完成, 详细结果请查看附件.\r\n尝试自动修复如下数据:\r\nblocks:{}\r\nshares:{}\r\n".format(
-        blocks, shares)
+    boby = "股票资金流和价格数据自动更新完成, 详细结果请查看附件.\r\n" \
+            "已尝试自动修复如下数据:\r\n" \
+            + "\tblocks:{}\r\n\tshares:{}\r\n".format(blocks, shares)
+            + "手动修复使用如下指令:\r\n" \
+            + "\tpython collect_data.py {} {}\r\n".format(blocks, shares)
     mail_body = MIMEText(boby, _subtype='plain', _charset='utf-8')
     msg['Subject'] = Header("股票数据更新", 'utf-8')
     msg['From'] = sender

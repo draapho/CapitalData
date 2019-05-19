@@ -2,15 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import requests
-import re
-import pandas as pd
 import datetime
 import time
 import pytz
-import os
-import csv
 from myutil import *
 from tendo import singleton
+from ast import literal_eval
 
 
 class collect_data(object):
@@ -37,7 +34,7 @@ class collect_data(object):
                 time.sleep(10)
                 r = None
         if r is None:
-            raise Exception("FAILED! url:{}".format(url))
+            raise Exception("===>FAILED! requests_get: {}".format(url))
         return r
 
     def get_day_detail(self, id):
@@ -179,6 +176,7 @@ class collect_data(object):
         return list_info
 
     def check_file(self, file, date):
+        last_line = b""
         if os.path.exists(file):
             # 读取文件最后一行
             with open(file, 'rb+') as f:
@@ -192,24 +190,20 @@ class collect_data(object):
                     last_line = lines[-1]
                     date_last = last_line.decode().split(',')[0]
                 except Exception as e:
+                    last_line = b""
                     print(e)
                 else:
                     #日期相同, 则删除最后一行
                     if date_last == date:
                         f.seek(-len(last_line), os.SEEK_END)
                         f.truncate()
+        return last_line
 
     def save_info(self, info, fileName, path=None):
         if info is None:
-            print("fail to save_info. fileName: {}".format(fileName))
-        if self.time_str is None:
-            raise Exception("save_details failed! NO time information.")
-        else:
-            ymd = self.time_str.split("-")
-            # ymd[2] = ymd[2].split()[0]
-            # print (ymd)
+            raise Exception("===>FAILED! NO information")
         if (path is None):
-            path = get_cur_dir() + "\\_data\\_info\\"
+            path = get_data_path()
         fileName += ".csv"
         # print(path)
         # print(info)
@@ -223,34 +217,45 @@ class collect_data(object):
                   index=False, encoding='utf-8')
         print("saved {} info: {}".format(fileName, info))
 
-    def save_detail(self, detail, fileName, path=None):
-        if detail is None:
-            print("fail to save_detail. fileName: {}".format(fileName))
-        if self.time_str is None:
-            raise Exception("save_details failed! NO time information.")
-        else:
-            ymd = self.time_str.split("-")
-            ymd[2] = ymd[2].split()[0]
-            date = self.time_str.split()[0]
-            # print (ymd)
-        if (path is None):
-            path = get_cur_dir() + \
-                "\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
-        fileName += ".csv"
-        # print(path + fileName)
+        # check result
+        flag_ok = 0
+        listLine = str(self.check_file(path + fileName, None), encoding = "utf-8").split(",")
+        if (len(listLine) == 28):
+            # list_info 最终格式:                                   最新价      开盘价      最高       最低        成交量(手)      成交额(万)       主力净值(万)   超大流入(元)   超大流出(元)   超大净值(万)   占比      大单流入(元)    大单流出(元)      大单净值(万)   占比       中单流入(元)    中单流出(元)     中单净值(万)    占比       小单流入(元)    小单流出(元)     小单净值(万)  占比
+            # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
+            if '-' not in listLine[12:]:
+                flag_ok = 1
+        if (flag_ok == 0):
+            raise Exception("===>FAILED! ERR information: {}".format(info))
 
-        # 如果不是收盘, 就需要对齐数据. 否则无法DataFrame转换
-        length = len(detail["main"]) - len(detail["value"])
-        if (length > 0):
-            temp_list = [''] * length
-            detail["value"].extend(temp_list)
-
-        df = pd.DataFrame(detail)
-        # print (df)
-        if (os.path.exists(path) is False):
-            os.makedirs(path)
-        df.to_csv(path + fileName)
-        print("saved {} details. Date: {}".format(fileName, date))
+    # def save_detail(self, detail, fileName, path=None):
+    #     if detail is None:
+    #         print("fail to save_detail. fileName: {}".format(fileName))
+    #     if self.time_str is None:
+    #         raise Exception("failed! save_detail: NO time information.")
+    #     else:
+    #         ymd = self.time_str.split("-")
+    #         ymd[2] = ymd[2].split()[0]
+    #         date = self.time_str.split()[0]
+    #         # print (ymd)
+    #     if (path is None):
+    #         path = get_cur_dir() + \
+    #             "\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
+    #     fileName += ".csv"
+    #     # print(path + fileName)
+    #
+    #     # 如果不是收盘, 就需要对齐数据. 否则无法DataFrame转换
+    #     length = len(detail["main"]) - len(detail["value"])
+    #     if (length > 0):
+    #         temp_list = [''] * length
+    #         detail["value"].extend(temp_list)
+    #
+    #     df = pd.DataFrame(detail)
+    #     # print (df)
+    #     if (os.path.exists(path) is False):
+    #         os.makedirs(path)
+    #     df.to_csv(path + fileName)
+    #     print("saved {} details. Date: {}".format(fileName, date))
 
     def get_shares_from_web(self):
         print("===> get_shares_from_web START <===")
@@ -319,7 +324,7 @@ class collect_data(object):
         url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
               "type=CT&cmd=C._BKGN&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&" \
               "cb=callback05370824536073362&callback=callback05370824536073362&" \
-            + "token={}&_={}".format(get_token(), get__())
+              + "token={}&_={}".format(get_token(), get__())
         r = self.requests_get(url, "概念代码")
         # print (r.text)
 
@@ -339,9 +344,9 @@ class collect_data(object):
 
     def save_shares_to_file(self, path=None):
         if (path is None):
-            if (os.path.exists(get_report_path()) is False):
-                os.makedirs(get_report_path())
-            path = get_report_path() + "tickers_dl.csv"
+            if (os.path.exists(get_para_path()) is False):
+                os.makedirs(get_para_path())
+            path = get_para_path() + "tickers_dl.csv"
 
         shares = self.get_shares_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
@@ -352,9 +357,9 @@ class collect_data(object):
 
     def save_blocks_to_file(self, path=None):
         if (path is None):
-            if (os.path.exists(get_report_path()) is False):
-                os.makedirs(get_report_path())
-            path = get_report_path() + "blocks_dl.csv"
+            if (os.path.exists(get_para_path()) is False):
+                os.makedirs(get_para_path())
+            path = get_para_path() + "blocks_dl.csv"
         blocks = self.get_blocks_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
@@ -365,7 +370,7 @@ class collect_data(object):
     def get_blocks_from_file(self, file=None):
         blocks_dict = {}
         if (file is None):
-            file = get_report_path() + "blocks.csv"
+            file = get_para_path() + "blocks.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
@@ -378,7 +383,7 @@ class collect_data(object):
     def get_shares_from_file(self, file=None):
         tickers_dict = {}
         if (file is None):
-            file = get_report_path() + "tickers.csv"
+            file = get_para_path() + "tickers.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
@@ -414,7 +419,7 @@ class collect_data(object):
 
     def save_shares_in_blocks(self, block, shares, path=None):
         if (path is None):
-            path = get_report_path() + "blocks\\"
+            path = get_para_path() + "blocks\\"
             if (os.path.exists(path) is False):
                 os.makedirs(path)
             path = path + "{}.csv".format(block)
@@ -585,7 +590,7 @@ class collect_data(object):
                         print("===> update_check, DENY! <===")
                         return result
                 except Exception as e:
-                    print("Read report file FAILED. {}".format(e))
+                    print("Read report file failed. {}".format(e))
 
                 result = True
                 print("===> update_check, PASS! <===")
@@ -603,8 +608,8 @@ class collect_data(object):
         # 程序运行结束时间
         self.rd['run_end'] = now
         try:
-            if (os.path.exists(get_report_path()) is False):
-                os.makedirs(get_report_path())
+            if (os.path.exists(get_para_path()) is False):
+                os.makedirs(get_para_path())
 
             with open(get_report_file(), 'w') as f:
                 for key, val in self.rd.items():
@@ -622,8 +627,11 @@ def collect_data_test(cd):
         # cd.get_all_blocks()
         # cd.get_all_shares()
         cd.update_finished()
-    # tickers = ['3003762','6000171']
+    # blocks = ['BK04561', 'BK04771']
+    # cd.get_all_blocks(blocks)
+    # tickers = ['0003332','6000171']
     # cd.get_all_shares(tickers)
+
 
 if __name__ == '__main__':
     me = singleton.SingleInstance()
@@ -637,6 +645,19 @@ if __name__ == '__main__':
             cd.save_blocks_to_file()
         elif sys.argv[1] == "blocks_folder":
             cd.get_shares_in_blocks()
+    elif len(sys.argv) == 3:
+        try:
+            print("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
+            blocks = literal_eval(sys.argv[1])
+            tickers = literal_eval(sys.argv[2])
+            print("blocks:{}\r\ntickers:{}\r\n".format(blocks, tickers))
+            if (len(blocks)):
+                cd.get_all_blocks(blocks)
+            if (len(tickers)):
+                cd.get_all_shares(tickers)
+            print("===> 手动修复完成! <===\r\n")
+        except Exception as e:
+            print (e)
     else:
         # test purpose
         collect_data_test(cd)

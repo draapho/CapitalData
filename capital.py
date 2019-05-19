@@ -22,8 +22,8 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     def sys_init(self):
         # 变量
-        init_index="0000011"
-        self.file = ".\\_data\\_info\\{}.csv".format(init_index)
+        self.code="0000011"
+        self.file = ".\\_data\\_info\\{}.csv".format(self.code)
         self.index = {
                     "0000011": "上证指数",
                     "3990012": "深圳指数",
@@ -31,26 +31,40 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                     "3990062": "创业板"
                 }
 
-        # 菜单栏
-        self.actionParameter.triggered.connect(self.setParameter)
-        self.actionOpen.triggered.connect(self.openFile)
-        self.actionCollect.triggered.connect(self.collectDate)
-        self.actionAutoFix.triggered.connect(self.autoFix)
-        self.actionSharesCsv.triggered.connect(self.sharesCsv)
-        self.actionBlocksCsv.triggered.connect(self.blocksCsv)
-        self.actionBlocksFolders.triggered.connect(self.blocksFolder)
+        # 工具按钮
+        self.collectDate = QAction('Run collect_data', self)
+        self.autoFix = QAction('Run collect_autofix', self)
+        self.openFile = QAction('Open _para folder', self)
+        self.setParameter = QAction('Open parameter.ini', self)
+        self.tickersCsv = QAction('Get tickers_dl.csv', self)
+        self.blocksCsv = QAction('Get blocks_dl.csv', self)
+        self.blocksFolder = QAction('Get Blocks folder', self)
 
-        try:
-            with open( ".\\_para\\parameter.ini", 'r', encoding="utf-8") as csv_file:
-                reader = csv.reader(skip_comments(csv_file))
-                self.para = dict(reader)
-        except Exception as e:
-            self.para = {}
-            print (e)
-        print(self.para)
-        self.kNumber = self.para.get('K_NUMBER', 'all')
+        menu = QMenu(self)
+        menu.addAction(self.collectDate)
+        menu.addAction(self.autoFix)
+        menu.addSeparator()
+        menu.addAction(self.openFile)
+        menu.addAction(self.setParameter)
+        menu.addSeparator()
+        menu.addAction(self.tickersCsv)
+        menu.addAction(self.blocksCsv)
+        menu.addAction(self.blocksFolder)
+        self.toolButton.setMenu(menu)
 
-        # # 搜索文件列表
+        self.collectDate.triggered.connect(self.tools)
+        self.autoFix.triggered.connect(self.tools)
+        self.openFile.triggered.connect(self.tools)
+        self.setParameter.triggered.connect(self.tools)
+        self.tickersCsv.triggered.connect(self.tools)
+        self.blocksCsv.triggered.connect(self.tools)
+        self.blocksFolder.triggered.connect(self.tools)
+
+        para = self.read_parameter_ini()
+        print(para)
+        self.kNumber = para.get('K_NUMBER', 'all')
+
+        # # 搜索文件列表, 加入自动匹配
         # self.path = ".\\_data\\_info\\*.csv"
         # try:
         #     self.tickers_code = glob.glob(self.path)
@@ -104,15 +118,17 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # print (self.tickers)
 
         # 点击操作
-        self.buttonSwitch.clicked.connect(self.buttonClicked)
+        self.buttonSwitch.clicked.connect(self.switchClicked)
+        self.buttonMore.clicked.connect(self.moreClicked)
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tableView.clicked.connect(self.tableClicked)
+        self.tableView.pressed.connect(self.tableClicked)
+        self.tableView.installEventFilter(self) # eventFilter
         self.tableView.doubleClicked.connect(self.tableDoubleClicked)
 
         # 初始化GUI
         self.isTableBlocks = True
         self.set_table()
-        drawChart(self.graphicsView,self.file,name=self.index[init_index],kNumber=self.kNumber)
+        drawChart(self.graphicsView,self.file,name=self.index[self.code],kNumber=self.kNumber)
 
     # ======= 操作复用函数 =======
     def set_table(self):
@@ -127,56 +143,56 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (text in list(self.tickers['name'])):
             name = text
             code = self.tickers[self.tickers['name'].isin([text])]
-            code = code.iloc[0][0]
+            self.code = code.iloc[0][0]
         elif (text in list(self.blocks['name'])):
             name = text
             code = self.blocks[self.blocks['name'].isin([text])]
-            code = code.iloc[0][0]
+            self.code = code.iloc[0][0]
         if (text in list(self.tickers['code'])):
-            code = text
-            name = self.tickers[self.tickers['name'].isin([text])]
-            name = name.iloc[0][0]
+            self.code = text
+            name = self.tickers[self.tickers['code'].isin([text])]
+            name = name.iloc[0][1]
         elif (text in list(self.blocks['code'])):
-            code = text
-            name = self.blocks[self.blocks['name'].isin([text])]
-            name = name.iloc[0][0]
-        if (code in list(self.blocks['code'])):
-            self.file = "{}\\{}.csv".format(os.path.dirname(self.file), code)
-            drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
-        elif (code in list(self.tickers['code'])):
-            self.file = "{}\\{}.csv".format(os.path.dirname(self.file), code)
-            drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
+            self.code = text
+            name = self.blocks[self.blocks['code'].isin([text])]
+            name = name.iloc[0][1]
+        if (self.code !=  os.path.splitext(os.path.basename(self.file))[0]):
+            if (self.code in list(self.blocks['code'])):
+                self.file = "{}\\{}.csv".format(os.path.dirname(self.file), self.code)
+                drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
+            elif (self.code in list(self.tickers['code'])):
+                self.file = "{}\\{}.csv".format(os.path.dirname(self.file), self.code)
+                drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
 
-    # ======= operation =======
-    def setParameter(self):
-        os.startfile('.\\_para\\parameter.ini')
-        # 加载初始化参数
+    def read_parameter_ini(self):
         try:
-            with open( ".\\_para\\parameter.ini", 'r', encoding="utf-8") as csv_file:
+            with open(get_parameter_file(), 'r', encoding="utf-8-sig") as csv_file:
                 reader = csv.reader(skip_comments(csv_file))
                 para = dict(reader)
         except Exception as e:
-            print (e)
+            para = {}
+            print("Decode \"parameter.ini\" failed! ERR:{}".format(e))
+        return para
 
-    def openFile(self):
-        os.startfile('.\\_para\\')
-
-    def collectDate(self):
-        # os.system(get_cur_dir()+"\\collect_silence.bat")
-        # subprocess.call('start /wait collect_silence.bat', shell=True)
-        subprocess.call('python collect_silence.py', shell=False)
-
-    def autoFix(self):
-        subprocess.call('python collect_autofix.py', shell=False)
-
-    def sharesCsv(self):
-        subprocess.call('python collect_data.py "shares_dl_csv"', shell=False)
-
-    def blocksCsv(self):
-        subprocess.call('python collect_data.py "blocks_dl_csv"', shell=False)
-
-    def blocksFolder(self):
-        subprocess.call('python collect_data.py "blocks_folder"', shell=False)
+    # ======= operation =======
+    def tools(self):
+        if self.sender() == self.collectDate:
+            # os.system(get_cur_dir()+"\\collect_silence.bat")
+            # subprocess.call('start /wait collect_silence.bat', shell=True)
+            subprocess.call('python collect_silence.py', shell=False)
+        elif self.sender() == self.autoFix:
+            subprocess.call('python collect_autofix.py', shell=False)
+        elif self.sender() == self.openFile:
+            os.startfile('.\\_para\\')
+        elif self.sender() == self.setParameter:
+            os.startfile(get_parameter_file())
+            self.kNumber = self.read_parameter_ini().get('K_NUMBER', 'all')
+        elif self.sender() == self.tickersCsv:
+            subprocess.call('python collect_data.py "shares_dl_csv"', shell=False)
+        elif self.sender() == self.blocksCsv:
+            subprocess.call('python collect_data.py "blocks_dl_csv"', shell=False)
+        elif self.sender() == self.blocksFolder:
+            subprocess.call('python collect_data.py "blocks_folder"', shell=False)
 
     def completerActivated(self):
         self.codeChoosed()
@@ -185,24 +201,49 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (self.lineEditSticker.hasFocus()):   # 解决触发两次的问题
             self.codeChoosed()
 
-    def buttonClicked(self):
+    def switchClicked(self):
         self.isTableBlocks = not self.isTableBlocks
         self.set_table()
 
+    def eventFilter(self, obj, event):
+        if (obj == self.tableView):
+            if (event.type() == QEvent.KeyPress):
+                row = -10
+                if (event.key() == Qt.Key_Up):
+                    row = self.tableView.selectionModel().currentIndex().row() - 1
+                if (event.key() == Qt.Key_Down):
+                    row = self.tableView.selectionModel().currentIndex().row() + 1
+                if (row >= -1):
+                    column = self.tableView.selectionModel().currentIndex().column()
+                    if (row < 0):
+                        row=0
+                    if (self.isTableBlocks):
+                        if (row >= len(self.blocks)):
+                            row -= 1
+                        text = self.blocks.values[row][column]
+                    else:
+                        if (row >= len(self.tickers)):
+                            row -= 1
+                        text = self.tickers.values[row][column]
+                    self.lineEditSticker.setText(text)
+                    self.codeChoosed()
+        return False
+
     def tableClicked(self, mi):
-        # row = mi.row()
-        # column = mi.column()
+        row = mi.row()
+        column = mi.column()
+        if (column > 1):
+            column = 1
         # print (row, column)
         if (self.isTableBlocks):
-            text = self.blocks.values[mi.row()][1]
+            text = self.blocks.values[row][column]
         else:
-            text = self.tickers.values[mi.row()][1]
+            text = self.tickers.values[row][column]
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 
     def tableDoubleClicked(self, mi):
         if (self.isTableBlocks):
-            # block = self.blocks.values[mi.row()][0]
             block = self.blocks.values[mi.row()]
             if block[0] not in self.index:
                 dialog = GuiSub(block, self.kNumber, parent=self)
@@ -210,6 +251,19 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         else:
             pass
             # /////////////////////////显示基本面
+
+    def moreClicked(self):
+        code_list = list(self.blocks.code)
+        if (self.code in code_list) and (self.code not in self.index.keys()):
+            row = code_list.index(self.code)
+            dialog = GuiSub(self.blocks.values[row], self.kNumber, parent=self)
+            dialog.show()
+        else:
+            pass
+            # //////////////////////显示基本面
+            # http://quote.eastmoney.com/sh601006.html  所处行业排名
+            # http://data.eastmoney.com/stockcalendar/601006.html 个股日历, 直接打开网页即可
+            # http://f10.eastmoney.com/IndustryAnalysis/Index?type=web&code=SH601006#gsgm-0 所在行业信息, 直接打开网页即可
 
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
     def __init__(self, block, para={}, parent=None):
@@ -229,7 +283,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
         # 点击操作
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tableView.clicked.connect(self.stableClicked)
+        self.tableView.pressed.connect(self.stableClicked)
+        self.tableView.installEventFilter(self) # eventFilter
 
         # 初始化GUI
         self.setWindowTitle("{} {}".format(self.block_code,self.block_name))
@@ -237,15 +292,36 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tableView.setModel(model)
         drawChart(self.graphicsView,self.sfile,name=self.block_name,kNumber=self.spara)
 
+    def eventFilter(self, obj, event):
+        if (obj == self.tableView):
+            if (event.type() == QEvent.KeyPress):
+                row = -10
+                if (event.key() == Qt.Key_Up):
+                    row = self.tableView.selectionModel().currentIndex().row() - 1
+                if (event.key() == Qt.Key_Down):
+                    row = self.tableView.selectionModel().currentIndex().row() + 1
+                if (row >= -1):
+                    column = self.tableView.selectionModel().currentIndex().column()
+                    if (row < 0):
+                        row=0
+                    elif (row >= len(self.stickers)):
+                        row -= 1
+                    code = self.stickers.values[row][0]
+                    name = self.stickers.values[row][1]
+                    if (code != os.path.splitext(os.path.basename(self.sfile))[0]):
+                        self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
+                        drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
+        return False
+
     def stableClicked(self, mi):
         # row = mi.row()
         # column = mi.column()
         # print (row, column)
         code = self.stickers.values[mi.row()][0]
         name = self.stickers.values[mi.row()][1]
-        self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
-        drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
-
+        if (code !=  os.path.splitext(os.path.basename(self.sfile))[0]):
+            self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
+            drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
 
 
 if __name__ == "__main__":

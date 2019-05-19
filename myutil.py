@@ -16,14 +16,24 @@ def get_cur_dir():
     elif os.path.isfile(path):
         return os.path.dirname(path)
 
-def get_report_path():
-    return get_cur_dir() + "\\_para\\"
+def get_data_path():
+    return ".\\_data\\_info\\"
+
+def get_para_path():
+    # return get_cur_dir() + "\\_para\\"
+    return ".\\_para\\"
 
 def get_report_name():
     return "report.txt"
 
 def get_report_file():
-    return get_report_path() + get_report_name()
+    return get_para_path() + get_report_name()
+
+def get_parameter_name():
+    return "parameter.ini"
+
+def get_parameter_file():
+    return get_para_path() + get_parameter_name()
 
 comment_pattern = re.compile(r'\s*#.*$')
 
