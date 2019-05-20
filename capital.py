@@ -1,17 +1,9 @@
-import sys
-import os
 import gui_main
 import gui_sub
 import subprocess
-import datetime
-import csv
-import numpy as np
-import pandas as pd
-from myutil import *
 from gui_misc import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
-from PyQt5.QtGui import *
 
 
 class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
@@ -38,7 +30,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.setParameter = QAction('Open parameter.ini', self)
         self.tickersCsv = QAction('Get tickers_dl.csv', self)
         self.blocksCsv = QAction('Get blocks_dl.csv', self)
-        self.blocksFolder = QAction('Get Blocks folder', self)
+        self.blocksFolder = QAction('Get tickers in blocks', self)
 
         menu = QMenu(self)
         menu.addAction(self.collectDate)
@@ -261,9 +253,6 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         else:
             pass
             # //////////////////////显示基本面
-            # http://quote.eastmoney.com/sh601006.html  所处行业排名
-            # http://data.eastmoney.com/stockcalendar/601006.html 个股日历, 直接打开网页即可
-            # http://f10.eastmoney.com/IndustryAnalysis/Index?type=web&code=SH601006#gsgm-0 所在行业信息, 直接打开网页即可
 
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
     def __init__(self, block, para={}, parent=None):
@@ -283,7 +272,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
         # 点击操作
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tableView.pressed.connect(self.stableClicked)
+        self.tableView.pressed.connect(self.sTableClicked)
+        self.tableView.doubleClicked.connect(self.sTableDoubleClicked)
         self.tableView.installEventFilter(self) # eventFilter
 
         # 初始化GUI
@@ -313,7 +303,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
                         drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
         return False
 
-    def stableClicked(self, mi):
+    def sTableClicked(self, mi):
         # row = mi.row()
         # column = mi.column()
         # print (row, column)
@@ -323,6 +313,11 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
             self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
             drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
 
+    def sTableDoubleClicked(self, mi):
+        pass
+        # /////////////////////////显示基本面
+        # url2 = "http://f10.eastmoney.com/IndustryAnalysis/Index?type=web&code=SH601006#gsgm-0"
+        # http://data.eastmoney.com/stockcalendar/601006.html 个股日历, 直接打开网页即可  / 个股解禁等等信息, 多个标签
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

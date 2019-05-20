@@ -23,6 +23,8 @@ def drawChart(graphicsView, file, kNumber='all', name=''):
     try:
         if kNumber == '1y':
             n_end = 256
+        elif kNumber == '6m':
+            n_end = 128
         elif kNumber == '3m':
             n_end = 64
         elif kNumber == '1m':

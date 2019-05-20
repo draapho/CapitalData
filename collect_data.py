@@ -40,8 +40,8 @@ class collect_data(object):
     def get_day_detail(self, id):
         # 单日资金流明细, 走势图.  网址: "http://data.eastmoney.com/zjlx/zs000001.html"
         self.url = "http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?" \
-            "type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&" \
-            + "id={}&acces_token={}&_={}".format(id, get_token(), get__())
+                   "type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&" \
+                   + "id={}&acces_token={}&_={}".format(id, get_token(), get__())
         r = self.requests_get(self.url, "资金明细")
         # print (r.text)
 
@@ -97,7 +97,7 @@ class collect_data(object):
         day_details["large"] = capital_temp[2::5]
         day_details["middle"] = capital_temp[3::5]
         day_details["small"] = capital_temp[4::5]
-        day_details["value"] = detail_price[1:]       # 舍弃9:30的开盘值, 和资金流数据对齐.
+        day_details["value"] = detail_price[1:]  # 舍弃9:30的开盘值, 和资金流数据对齐.
         # print (detail_capital)
         # print (capital_temp)
         # print (day_details["main"])
@@ -114,8 +114,8 @@ class collect_data(object):
     def get_code_info(self, cmd):
         # 单日资金流数据信息. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
         self.url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-            "type=CT&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&" \
-            + "cmd={}&token={}".format(cmd, get_token())
+                   "type=CT&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&" \
+                   + "cmd={}&token={}".format(cmd, get_token())
         r = self.requests_get(self.url, "资金数据")
         # print (r.text)
 
@@ -140,8 +140,8 @@ class collect_data(object):
 
         # 单日涨跌信息. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
         self.url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-            "type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&" \
-            + "cmd={}&token={}&rt={}".format(cmd, get_token(), get_rt())
+                   "type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&" \
+                   + "cmd={}&token={}&rt={}".format(cmd, get_token(), get_rt())
         r = self.requests_get(self.url, "股价数据")
         # print (r.text)
 
@@ -182,7 +182,7 @@ class collect_data(object):
             with open(file, 'rb+') as f:
                 # 在文本文件中，没有使用b模式选项打开的文件，只允许从文件头开始,只能seek(offset,0)
                 if os.path.getsize(file) > 1000:
-                    f.seek(-1000, os.SEEK_END)      # 从文件末尾开始向前1000个字符
+                    f.seek(-1000, os.SEEK_END)  # 从文件末尾开始向前1000个字符
                     lines = f.readlines()
                 else:
                     lines = f.readlines()
@@ -193,7 +193,7 @@ class collect_data(object):
                     last_line = b""
                     print(e)
                 else:
-                    #日期相同, 则删除最后一行
+                    # 日期相同, 则删除最后一行
                     if date_last == date:
                         f.seek(-len(last_line), os.SEEK_END)
                         f.truncate()
@@ -219,7 +219,7 @@ class collect_data(object):
 
         # check result
         flag_ok = 0
-        listLine = str(self.check_file(path + fileName, None), encoding = "utf-8").split(",")
+        listLine = str(self.check_file(path + fileName, None), encoding="utf-8").split(",")
         if (len(listLine) == 28):
             # list_info 最终格式:                                   最新价      开盘价      最高       最低        成交量(手)      成交额(万)       主力净值(万)   超大流入(元)   超大流出(元)   超大净值(万)   占比      大单流入(元)    大单流出(元)      大单净值(万)   占比       中单流入(元)    中单流出(元)     中单净值(万)    占比       小单流入(元)    小单流出(元)     小单净值(万)  占比
             # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
@@ -368,54 +368,30 @@ class collect_data(object):
         print("saved blocks to file: {}".format(path))
 
     def get_blocks_from_file(self, file=None):
-        blocks_dict = {}
+        blocks_code = []
         if (file is None):
             file = get_para_path() + "blocks.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                blocks_dict = dict(reader)
+                blocks_code = [row[0] for row in reader]
         except Exception as e:
             self.rd['blocks_csv_err'] = e
             print(e)
-        return blocks_dict
+        return blocks_code
 
     def get_shares_from_file(self, file=None):
-        tickers_dict = {}
+        tickers_code = []
         if (file is None):
             file = get_para_path() + "tickers.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                tickers_dict = dict(reader)
+                tickers_code = [row[0] for row in reader]
         except Exception as e:
             self.rd['tickers_csv_err'] = e
             print(e)
-        return tickers_dict
-
-        # 输入文件为通达信 EBK文件, 需要格式转换
-        # codes_list = []
-        # if (file is None):
-        #     # 通达信导出格式为EBK, 股票代码0开头表示深圳, 1开头表示上海
-        #     file = get_cur_dir() + "\\_para\\tickers.EBK"
-        # try:
-        #     with open(file, 'r') as f:
-        #         for line in f.readlines():
-        #             line = line.strip('\r\n ')
-        #             if (len(line) == 7):
-        #                 if line.startswith('0'):
-        #                     # 东方财富用2结尾表示深圳. 将首个0去掉, 末尾加上2
-        #                     line = line[1:] + '2'
-        #                     codes_list.append(line)
-        #                 elif line.startswith('1'):
-        #                     # 东方财富用1结尾表示上海. 将1移到末尾
-        #                     line = line[1:] + '1'
-        #                     codes_list.append(line)
-        #     print (codes_list)
-        # except Exception as e:
-        #     self.rd['tickers_ebk_err'] = e
-        #     print (e)
-        # return codes_list
+        return tickers_code
 
     def save_shares_in_blocks(self, block, shares, path=None):
         if (path is None):
@@ -447,7 +423,7 @@ class collect_data(object):
         total = len(blocks)
         idx = 0
 
-        for cmd, block in blocks.items():
+        for cmd in blocks:
             idx += 1
             print("===> {}/{}\tin get_shares_in_blocks".format(idx, total))
             name = {}
@@ -458,7 +434,7 @@ class collect_data(object):
                 r = self.requests_get(
                     url + url_cmd_page.format(cmd, page), "个股代码")
                 if (r_old == r.text):
-                    print("{} {} have pages:{}, shares:{}".format(cmd, block, page - 1, len(name)))
+                    print("{} have pages:{}, shares:{}".format(cmd, page - 1, len(name)))
                     # print(name)
                     self.save_shares_in_blocks(cmd, name)
                     break
@@ -638,7 +614,7 @@ if __name__ == '__main__':
     cd = collect_data()
 
     if len(sys.argv) == 2:
-        print ("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
+        print("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
         if sys.argv[1] == "shares_dl_csv":
             cd.save_shares_to_file()
         elif sys.argv[1] == "blocks_dl_csv":
@@ -657,7 +633,7 @@ if __name__ == '__main__':
                 cd.get_all_shares(tickers)
             print("===> 手动修复完成! <===\r\n")
         except Exception as e:
-            print (e)
+            print(e)
     else:
         # test purpose
         collect_data_test(cd)
