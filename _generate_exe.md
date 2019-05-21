@@ -24,8 +24,7 @@ pandas          0.23.4
 PyQt5           5.12.2          
 PyQt5-sip       4.19.14         
 pyqt5-tools     5.11.3.1.4      
-pyqtgraph       0.10.0          
-PyQtWebEngine   5.12.1       
+pyqtgraph       0.10.0           
 requests        2.21.0                  
 tendo           0.2.12          # need to del import in class, otherwise raise error!
 ```   

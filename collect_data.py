@@ -13,7 +13,6 @@ from ast import literal_eval
 class collect_data(object):
     def __init__(self):
         self.time_str = None
-        self.url = None
         self.rd = {}
 
     def requests_get(self, url, comment=""):
@@ -26,9 +25,6 @@ class collect_data(object):
             except Exception as e:
                 t = time.strftime("%H%M%S", time.localtime())
                 self.rd["url_err_{}".format(t)] = url
-                # 替换原来的token值
-                pattern = r'token=(.*?)&'
-                url = re.sub(pattern, "token={}&".format(get_token()), url)
                 # 10s后重试连接
                 print("10s后重试. 错误:{}".format(e))
                 time.sleep(10)
@@ -37,86 +33,97 @@ class collect_data(object):
             raise Exception("===>FAILED! requests_get: {}".format(url))
         return r
 
-    def get_day_detail(self, id):
-        # 单日资金流明细, 走势图.  网址: "http://data.eastmoney.com/zjlx/zs000001.html"
-        self.url = "http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?" \
-                   "type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&" \
-                   + "id={}&acces_token={}&_={}".format(id, get_token(), get__())
-        r = self.requests_get(self.url, "资金明细")
-        # print (r.text)
-
-        try:
-            pattern = r'\"ya\":\[(.*?)\]'
-            detail_capital = re.compile(pattern, re.S).findall(r.text)
-            # print (detail_capital[0])
-            pattern = r'\"(.*?,.*?,.*?,.*?)\",?'
-            detail_capital = re.compile(
-                pattern, re.S).findall(detail_capital[0])
-            # print (detail_capital)
-            # 只保存了 "ya" 下的数值. "xa"被滤除, 其格式固定, 为9:31-11:30, 13:01-15:00, 间隔为1分钟的时间, 共240个时间间隔.
-            # "xa":"             09:31,                                  09:32,                                   09:33,                                  ...,11:30,13:01,...,15:00,"
-            # "ya" 含义(亿元):   '主力   超大    大单    中单   小单'  , '主力    超大   大单    中单   小单'     '主力    超大    大单   中单   小单',   ...
-            # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
-            detail_capital[0].split(',')[4]
-        except Exception as e:
-            self.rd["detail_capital_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
-                self.url, e, detail_capital)
-            print("detail_capital_{}, err:{}\r\ninfo:{}".format(
-                id, e, detail_capital))
-            return None
-
-        # 单日股价明细, 走势图. 网址: "http://quote.eastmoney.com/zs000001.html"
-        url = "http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?" \
-              "rtntype=5&cb=jQuery18307447134581131771_1547432773503&type=r&iscr=false&" \
-              + "id={}&token={}&_={}".format(id, get_token(), get__())
-        r = self.requests_get(url, "股价明细")
-        # print (r.text)
-
-        try:
-            pattern = r'\"data\":\[(.*?)\]\}'
-            detail_price = re.compile(pattern, re.S).findall(r.text)
-            # print (detail_price[0])
-            pattern = r'\".*?,(.*?),.*?,.*?,.*?\",?'
-            detail_price = re.compile(pattern, re.S).findall(detail_price[0])
-            # print (detail_price)
-            # 只保存了每分钟的股价, 其格式固定, 为9:30-11:30, 13:01-15:00, 间隔为1分钟的时间, 共241个时间间隔.
-            # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
-            detail_price[1]
-        except Exception as e:
-            self.rd["detail_price_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
-                self.url, e, detail_price)
-            print("detail_price_{}, err:{}\r\ninfo:{}".format(id, e, detail_price))
-            return None
-
-        # 将所有信息打包成字典并返回
-        day_details = {}
-        # 对capital_info降维, 变为 [0.1205,0.8402,-0.7196,-0.5943,0.4737, -0.3273,0.9383,-1.2656,-0.7716,1.0989, ...]
-        capital_temp = [x for l in detail_capital for x in l.split(',')]
-        day_details["main"] = capital_temp[0::5]
-        day_details["super"] = capital_temp[1::5]
-        day_details["large"] = capital_temp[2::5]
-        day_details["middle"] = capital_temp[3::5]
-        day_details["small"] = capital_temp[4::5]
-        day_details["value"] = detail_price[1:]  # 舍弃9:30的开盘值, 和资金流数据对齐.
-        # print (detail_capital)
-        # print (capital_temp)
-        # print (day_details["main"])
-        # print (day_details["super"])
-        # print (day_details["large"])
-        # print (day_details["middle"])
-        # print (day_details["small"])
-        # print (day_details["value"])
-
-        # 字典格式, 包含当日股价详情和资金流详情. 键值: "value", "main", "super", "large", "middle", "small"
-        # print (day_details)
-        return day_details
+    # def get_day_detail(self, id):
+    #     # 资金流明细, 走势图. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
+    #     # 分时资金流: http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id=0000011&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5&_=1558414459473
+    #     # js代码文件: http://data.eastmoney.com/js_001/fn_zjlx.js?201806021830
+    #     # 相关内容:   http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id=" + code + "&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5
+    #     url = "http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id={}".format(id) \
+    #         + "&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5" \
+    #         + "&_={}".format(get__())
+    #     r = self.requests_get(url, "资金明细")
+    #     # print (r.text)
+    #
+    #     try:
+    #         pattern = r'\"ya\":\[(.*?)\]'
+    #         detail_capital = re.compile(pattern, re.S).findall(r.text)
+    #         # print (detail_capital[0])
+    #         pattern = r'\"(.*?,.*?,.*?,.*?)\",?'
+    #         detail_capital = re.compile(
+    #             pattern, re.S).findall(detail_capital[0])
+    #         # print (detail_capital)
+    #         # 只保存了 "ya" 下的数值. "xa"被滤除, 其格式固定, 为9:31-11:30, 13:01-15:00, 间隔为1分钟的时间, 共240个时间间隔.
+    #         # "xa":"             09:31,                                  09:32,                                   09:33,                                  ...,11:30,13:01,...,15:00,"
+    #         # "ya" 含义(亿元):   '主力   超大    大单    中单   小单'  , '主力    超大   大单    中单   小单'     '主力    超大    大单   中单   小单',   ...
+    #         # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
+    #         detail_capital[0].split(',')[4]
+    #     except Exception as e:
+    #         self.rd["detail_capital_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+    #             url, e, detail_capital)
+    #         print("detail_capital_{}, err:{}\r\ninfo:{}".format(
+    #             id, e, detail_capital))
+    #         return None
+    #
+    #     # 股价明细, 走势图.网址: "http://quote.eastmoney.com/zs000001.html"
+    #     # 分时股价:   http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd&cb=jQuery183012573462323834872_1558414725983&id=0000011&type=r&iscr=false&_=1558414728436
+    #     # js代码文件: http://hqres.eastmoney.com/EM15AGIndex/js/emchart.min.js
+    #     # 相关内容:        //pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd ,可知缺少参数 cb type iscr
+    #     url = "http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd" \
+    #         + "&cb={}&id={}&type=r&iscr=false&_={}".format(get_cb(), id, get__())
+    #     r = self.requests_get(url, "股价明细")
+    #     # print (r.text)
+    #
+    #     try:
+    #         pattern = r'\"data\":\[(.*?)\]\}'
+    #         detail_price = re.compile(pattern, re.S).findall(r.text)
+    #         # print (detail_price[0])
+    #         pattern = r'\".*?,(.*?),.*?,.*?,.*?\",?'
+    #         detail_price = re.compile(pattern, re.S).findall(detail_price[0])
+    #         # print (detail_price)
+    #         # 只保存了每分钟的股价, 其格式固定, 为9:30-11:30, 13:01-15:00, 间隔为1分钟的时间, 共241个时间间隔.
+    #         # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
+    #         detail_price[1]
+    #     except Exception as e:
+    #         self.rd["detail_price_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+    #             url, e, detail_price)
+    #         print("detail_price_{}, err:{}\r\ninfo:{}".format(id, e, detail_price))
+    #         return None
+    #
+    #     # 将所有信息打包成字典并返回
+    #     day_details = {}
+    #     # 对capital_info降维, 变为 [0.1205,0.8402,-0.7196,-0.5943,0.4737, -0.3273,0.9383,-1.2656,-0.7716,1.0989, ...]
+    #     capital_temp = [x for l in detail_capital for x in l.split(',')]
+    #     day_details["main"] = capital_temp[0::5]
+    #     day_details["super"] = capital_temp[1::5]
+    #     day_details["large"] = capital_temp[2::5]
+    #     day_details["middle"] = capital_temp[3::5]
+    #     day_details["small"] = capital_temp[4::5]
+    #     day_details["value"] = detail_price[1:]  # 舍弃9:30的开盘值, 和资金流数据对齐.
+    #     # print (detail_capital)
+    #     # print (capital_temp)
+    #     # print (day_details["main"])
+    #     # print (day_details["super"])
+    #     # print (day_details["large"])
+    #     # print (day_details["middle"])
+    #     # print (day_details["small"])
+    #     # print (day_details["value"])
+    #
+    #     # 字典格式, 包含当日股价详情和资金流详情. 键值: "value", "main", "super", "large", "middle", "small"
+    #     # print (day_details)
+    #     return day_details
 
     def get_code_info(self, cmd):
-        # 单日资金流数据信息. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
-        self.url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-                   "type=CT&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&" \
-                   + "cmd={}&token={}".format(cmd, get_token())
-        r = self.requests_get(self.url, "资金数据")
+        # 单日资金流. 网址: "http://data.eastmoney.com/zjlx/601006.html"
+        # 单日资金流: http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=0000011&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&token=70f12f2f4f091e459a279469fe49eca5
+        # js代码文件: http://data.eastmoney.com/js_001/zjlx/fn_zjlxStock.js?t=_201801301611
+        #            http://data.eastmoney.com/js_001/fn_zjlx_index.js?201806021830
+        #            这一块比较混乱, 猜测是把 Stock Block Index 都分开处理了. 还好最终的地址是通用的.
+        # 相关内容:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=' + _stockCode + _stockMarke + '&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var tab_data=({data:[(x)]})&token=70f12f2f4f091e459a279469fe49eca5
+        #             http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=' + _code +                    '&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var tab_data=({data:[(x)]})&token=70f12f2f4f091e459a279469fe49eca5
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT" \
+            + "&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&token=70f12f2f4f091e459a279469fe49eca5" \
+            + "&cmd={}".format(cmd)
+        r = self.requests_get(url, "资金数据")
         # print (r.text)
 
         try:
@@ -134,15 +141,19 @@ class collect_data(object):
             list1[23]
         except Exception as e:
             self.rd["info_capital_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
-                self.url, e, info_capital)
+                url, e, info_capital)
             print("info_capital_{}, err:{}\r\ninfo:{}".format(cmd, e, info_capital))
             return None
 
-        # 单日涨跌信息. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
-        self.url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-                   "type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&" \
-                   + "cmd={}&token={}&rt={}".format(cmd, get_token(), get_rt())
-        r = self.requests_get(self.url, "股价数据")
+        # 单日股价. 网址: "http://data.eastmoney.com/zjlx/601006.html"
+        # 单日股价:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&token=1942f5da9b46b069953c873404aad4b5&cmd=0000011&rt=51947244
+        # js代码文件: http://data.eastmoney.com/js_001/zjlx/fn_zjlxStock.js?t=_201801301611
+        #            http://data.eastmoney.com/js_001/fn_zjlx_index.js?201806021830
+        #            这一块比较混乱, 猜测是把 Stock Block Index 都分开处理了. 还好最终的地址是通用的.
+        # 相关内容:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var zjlx_hq = (x)&token=1942f5da9b46b069953c873404aad4b5&cmd="
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&sty=DCARQRQB&st=z&sr=&p=&ps=&cb=&js=var%20zjlx_hq%20=%20(x)&token=1942f5da9b46b069953c873404aad4b5" \
+            + "&cmd={}&rt={}".format(cmd, get__())
+        r = self.requests_get(url, "股价数据")
         # print (r.text)
 
         try:
@@ -158,7 +169,7 @@ class collect_data(object):
             list2[13]
         except Exception as e:
             self.rd["info_price_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
-                self.url, e, info_price)
+                url, e, info_price)
             print("info_price_{}, err:{}\r\ninfo:{}".format(cmd, e, info_price))
             return None
 
@@ -174,6 +185,228 @@ class collect_data(object):
         # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
         # self.get_captial_details(cmd)
         return list_info
+
+    def get_blocks_from_web(self):
+        print("===> get_blocks_from_web START <===")
+
+        # 获取板块代码. 网址: "http://data.eastmoney.com/bkzj/hy.html"
+        # 板块列表:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._BKHY&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=999&js=&token=894050c76af8597a853f5b408b759f5d&cb=callback05954677021554038&callback=callback05954677021554038&_=1558418601523
+        # js代码文件: http://data.eastmoney.com/js_001/chart.js
+        # 相关内容:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._BKHY&sty=DCFFPBFM&st=(BalFlowMain)&sr=1&p=1&ps=&ps=&js=&token=894050c76af8597a853f5b408b759f5d
+        #            参数 cb 和 callback 的值会回显在结果上, 可以自定义或为空
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._BKHY" \
+            + "&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=999&js=&token=894050c76af8597a853f5b408b759f5d" \
+            + "&cb={}&callback={}&_={}".format(get_cb(), get_cb(), get__())
+        r = self.requests_get(url, "板块代码")
+        # print (r.text)
+
+        sectors = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+        # print(sectors)
+
+        # 获取板块代码. 网址: "http://data.eastmoney.com/bkzj/gn.html"
+        # 板块列表:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._BKGN&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&token=894050c76af8597a853f5b408b759f5d&cb=callback04384373587445334&callback=callback04384373587445334&_=1558419287487
+        # js代码文件: http://data.eastmoney.com/js_001/chart.js
+        # 相关内容:   找不到...
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=C._BKGN" \
+            + "&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&token=894050c76af8597a853f5b408b759f5d&cb=&callback=" \
+            + "&_={}".format(get__())
+        r = self.requests_get(url, "概念代码")
+        # print (r.text)
+
+        concepts = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+        # print(concepts)
+
+        name = {}
+        for i in sectors:
+            temp = i.split(',')
+            name[temp[1] + temp[0]] = temp[2]
+        for i in concepts:
+            temp = i.split(',')
+            name[temp[1] + temp[0]] = temp[2]
+        print(name)
+        print("===> get_blocks_from_web END <===")
+        return name
+
+    def get_shares_from_web(self):
+        print("===> get_shares_from_web START <===")
+        blocks = {
+            "BK06111": "上证50_",
+            "BK06121": "上证180_",
+            "BK07051": "上证380",
+            "BK07431": "深证100R",
+            "BK05681": "深成500",
+            "BK05001": "HS300_",
+            "BK07011": "中证500",
+            "BK08211": "MSCI中国",
+            "BK08571": "MSCI大盘",
+            "BK08581": "MSCI中盘",
+        }
+        # 获取板块内个股. 网址: "http://quote.eastmoney.com/center/boardlist.html#boards-BK06111"
+        # 板块列表:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?cb=jQuery112403575218980903154_1558419737279&type=CT&token=4f1862fc3b5e77c150a2b985b12db0fd&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)&cmd=C.BK06111&st=(ChangePercent)&sr=-1&p=1&ps=20&_=1558419737296
+        # js代码文件: http://hqres.eastmoney.com/EMQuote_Center3.0/js/boardlist.min.js?v=190429171011214
+        # 相关内容:        //nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&token=4f1862fc3b5e77c150a2b985b12db0fd&js=({data:[(x)],recordsTotal:(tot),recordsFiltered:(tot)})"
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?cb={}".format(get_cb()) \
+            + "&type=CT&token=4f1862fc3b5e77c150a2b985b12db0fd&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)" \
+            + "&st=(ChangePercent)&sr=-1&ps=20&_={}".format(get__())
+        url_cmd_page = "&cmd=C.{}&p={}"
+        name = {}
+
+        for cmd, block in blocks.items():
+            r_old = None
+            page = 0
+            while (True):
+                page += 1
+                r = self.requests_get(
+                    url + url_cmd_page.format(cmd, page), "个股代码")
+                if (r_old == r.text):
+                    print("{} have pages:{}".format(block, page - 1))
+                    break
+                else:
+                    r_old = r.text
+                    # print (r.text)
+                    shares = re.compile(
+                        r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+                    print(shares)
+                    for i in shares:
+                        temp = i.split(',')
+                        # 去除B股, ST股
+                        if ('B' in temp[2] or 'ST' in temp[2]):
+                            continue
+                        else:
+                            name[temp[1] + temp[0]] = temp[2]
+        print(len(name), name)
+        print("===> get_shares_from_web END <===")
+        return name
+
+    def get_shares_in_blocks(self):
+        print("===> get_shares_in_blocks START <===")
+        blocks = self.get_blocks_from_file()
+        # 获取板块内个股. 网址: "http://quote.eastmoney.com/center/boardlist.html#boards-BK06111"
+        # 板块列表:   http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?cb=jQuery112403575218980903154_1558419737279&type=CT&token=4f1862fc3b5e77c150a2b985b12db0fd&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)&cmd=C.BK06111&st=(ChangePercent)&sr=-1&p=1&ps=20&_=1558419737296
+        # js代码文件: http://hqres.eastmoney.com/EMQuote_Center3.0/js/boardlist.min.js?v=190429171011214
+        # 相关内容:        //nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&token=4f1862fc3b5e77c150a2b985b12db0fd&js=({data:[(x)],recordsTotal:(tot),recordsFiltered:(tot)})"
+        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?cb={}".format(get_cb()) \
+            + "&type=CT&token=4f1862fc3b5e77c150a2b985b12db0fd&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)" \
+            + "&st=(ChangePercent)&sr=-1&ps=20&_={}".format(get__())
+        url_cmd_page = "&cmd=C.{}&p={}"
+
+        total = len(blocks)
+        idx = 0
+
+        for cmd in blocks:
+            idx += 1
+            print("===> {}/{}\tin get_shares_in_blocks".format(idx, total))
+            name = {}
+            r_old = None
+            page = 0
+            while (True):
+                page += 1
+                r = self.requests_get(
+                    url + url_cmd_page.format(cmd, page), "个股代码")
+                if (r_old == r.text):
+                    print("{} have pages:{}, shares:{}".format(
+                        cmd, page - 1, len(name)))
+                    # print(name)
+                    self.save_shares_in_blocks(cmd, name)
+                    break
+                else:
+                    r_old = r.text
+                    # print (r.text)
+                    shares = re.compile(
+                        r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
+                    print(shares)
+                    for i in shares:
+                        temp = i.split(',')
+                        # 去除B股, ST股
+                        if ('B' in temp[2] or 'ST' in temp[2]):
+                            continue
+                        else:
+                            name[temp[1] + temp[0]] = temp[2]
+        print("===> get_shares_in_blocks END <===")
+
+    def get_fund(self, code):
+        # 基本面信息. 网址: "http://quote.eastmoney.com/sh601006.html"
+        # 基本面信息: http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183046200764579979126_1558420775801&secid=1.601006&_=1558420777320
+        # Chrome调试: Network->Filter 分别搜索 "quote-min.js" 和 "get?spt", 可以提取如下链接.
+        # js代码文件: http://hqres.eastmoney.com/emag14/js/0509/quote-min.js?v=20190425
+        # 相关内容:   http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281
+        """
+        jQuery18307755203476525021_1558398132890({
+            "rc": 0,
+            "rt": 18,
+            "svr": 181403912,
+            "lt": 2,
+            "full": 1,
+            "data": {
+                "total": 2,
+                "diff": [{
+                    "f9": 7.59,             // 市盈率
+                    "f12": "601006",        // 代码
+                    "f13": 1,
+                    "f14": "大秦铁路",      // 名称
+                    "f20": 121610354396,    // 总市值
+                    "f23": 1.1,             // 市净率
+                    "f37": 3.69,            // ROE %
+                    "f45": 4005657757.0,    // 净利润
+                    "f49": 26.2073,         // 毛利率
+                    "f129": 20.29,          // 净利率
+                    "f134": "-",
+                    "f135": 118771503514.0, // 净资产
+                    "f1020": 2,             // 总市值排名
+                    "f1113": 8,
+                    "f1045": 1,             // 净利润排名
+                    "f1009": 2,             // 市盈率排名
+                    "f1023": 48,            // 市净率排名
+                    "f1049": 12,            // 毛利率排名
+                    "f1129": 6,             // 净利率排名
+                    "f1037": 10,            // ROE排名
+                    "f1135": 1,             // 净资产排名
+                    ...
+                    "f3020": 1,                 // 总市值分数: 1-高
+                    "f3113": 1,
+                    "f3045": 1,                 // 净利润分数: 3-较低
+                    "f3009": 1,                 // 市盈率分数: 3-较低
+                    "f3023": 4,                 // 市净率分数: 4-低 (高不好!)
+                    "f3049": 1,                 // 毛利率分数: 1-高
+                    "f3129": 1,                 // 净利率分数: 3-较低
+                    "f3037": 1,                 // ROE分数: 3-较低
+                    "f3135": 1,                 // 净资产分数: 2-较高
+                    ...
+                }, {
+                    "f9": 16.61,
+                    "f12": "BK0422",
+                    "f13": 90,
+                    "f14": "交运物流",
+                    "f20": 728481824000,            // 流通市值
+                    "f134": 57,                     // 板块个股数量
+                    ...
+                    "f2020": 12654500302.84,        // 总市值
+                    "f2113": 4.52,
+                    "f2045": 179833436.99,          // 净利润
+                    "f2009": 46.99,                 // 市盈率
+                    "f2023": 2.45,                  // 市净率
+                    "f2049": 18.75,                 // 毛利率
+                    "f2129": 4.18,                  // 净利率
+                    "f2037": 1.77,                  // ROE
+                    "f2135": 7805660590.25,         // 净资产
+                    "f2115": 38.84,
+                    ...
+                }]
+            }
+        });
+        """
+        url = "http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281" \
+            + "&cb={}&secid={}.{}&_={}".format(get_cb(), code[-1], code[:-1], get__())
+        print (url) # ////////////
+
+        ######### ///////// 思路, 读取所有板块和个股的信息, 最后一下子存储到文件中, 所以要失败自调用
+        # ////////////////////// 保持文件的时候, 按照code自动排序一下!
+        # ////////////////////// 更新当日数据的时候, 把基本面信息和资金流一并写入到文件....
+        # print (column)  # 获取 ['\xa0', '总市值', '净资产', '净利润', '市盈率', '市净率', '毛利率', '净利率', 'ROE']
+
+        fund_share[key] = values
+        print (fund_share)
+        return fund_share
 
     def check_file(self, file, date):
         last_line = b""
@@ -257,91 +490,6 @@ class collect_data(object):
     #     df.to_csv(path + fileName)
     #     print("saved {} details. Date: {}".format(fileName, date))
 
-    def get_shares_from_web(self):
-        print("===> get_shares_from_web START <===")
-        blocks = {
-            "BK06111": "上证50_",
-            "BK06121": "上证180_",
-            "BK07051": "上证380",
-            "BK07431": "深证100R",
-            "BK05681": "深成500",
-            "BK05001": "HS300_",
-            "BK07011": "中证500",
-            "BK08211": "MSCI中国",
-            "BK08571": "MSCI大盘",
-            "BK08581": "MSCI中盘",
-        }
-        # 获取板块内个股. 网址: "http://quote.eastmoney.com/center/boardlist.html#boards-BK06111"
-        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "cb=jQuery112407525040804622392_1557980547906&type=CT&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)&" \
-              "st=(ChangePercent)&sr=-1&ps=20&" \
-              + "token={}&_={}".format(get_token(), get__())
-        url_cmd_page = "&cmd=C.{}&p={}"
-        name = {}
-
-        for cmd, block in blocks.items():
-            r_old = None
-            page = 0
-            while (True):
-                page += 1
-                r = self.requests_get(
-                    url + url_cmd_page.format(cmd, page), "个股代码")
-                if (r_old == r.text):
-                    print("{} have pages:{}".format(block, page - 1))
-                    break
-                else:
-                    r_old = r.text
-                    # print (r.text)
-                    shares = re.compile(
-                        r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
-                    print(shares)
-                    for i in shares:
-                        temp = i.split(',')
-                        # 去除B股, ST股
-                        if ('B' in temp[2] or 'ST' in temp[2]):
-                            continue
-                        else:
-                            name[temp[1] + temp[0]] = temp[2]
-        print(len(name), name)
-        print("===> get_shares_from_web END <===")
-        return name
-
-    def get_blocks_from_web(self):
-        print("===> get_blocks_from_web START <===")
-
-        # 获取板块代码. 网址: "http://data.eastmoney.com/bkzj/hy.html"
-        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "type=CT&cmd=C._BKHY&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=999&js=&" \
-              "cb=callback09278314611305656&callback=callback09278314611305656&" \
-              + "token={}&_={}".format(get_token(), get__())
-        r = self.requests_get(url, "板块代码")
-        # print (r.text)
-
-        sectors = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
-        # print(sectors)
-
-        # 获取概念代码. 网址: "http://data.eastmoney.com/bkzj/gn.html"
-        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "type=CT&cmd=C._BKGN&sty=DCFFPBFM&st=(BalFlowMain)&sr=-1&p=1&ps=10000&js=&" \
-              "cb=callback05370824536073362&callback=callback05370824536073362&" \
-              + "token={}&_={}".format(get_token(), get__())
-        r = self.requests_get(url, "概念代码")
-        # print (r.text)
-
-        concepts = re.compile(r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
-        # print(concepts)
-
-        name = {}
-        for i in sectors:
-            temp = i.split(',')
-            name[temp[1] + temp[0]] = temp[2]
-        for i in concepts:
-            temp = i.split(',')
-            name[temp[1] + temp[0]] = temp[2]
-        print(name)
-        print("===> get_blocks_from_web END <===")
-        return name
-
     def save_shares_to_file(self, path=None):
         if (path is None):
             if (os.path.exists(get_para_path()) is False):
@@ -351,8 +499,8 @@ class collect_data(object):
         shares = self.get_shares_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
-            for key, value in shares.items():
-                writer.writerow([key, value])
+            for t in sorted(shares.items(),key=lambda item:item[0]):
+                writer.writerow(t)
         print("saved shares to file: {}".format(path))
 
     def save_blocks_to_file(self, path=None):
@@ -363,9 +511,26 @@ class collect_data(object):
         blocks = self.get_blocks_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
-            for key, value in blocks.items():
-                writer.writerow([key, value])
+            for t in sorted(blocks.items(),key=lambda item:item[0]):
+                writer.writerow(t)
         print("saved blocks to file: {}".format(path))
+
+    def save_shares_in_blocks(self, block, shares, path=None):
+        if (path is None):
+            path = get_para_path() + "blocks\\"
+            if (os.path.exists(path) is False):
+                os.makedirs(path)
+            path = path + "{}.csv".format(block)
+
+        valid_shares = self.get_shares_from_file()
+        i = 0
+        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            for t in sorted(shares.items(),key=lambda item:item[0]):
+                if (t[0] in valid_shares):
+                    i = i + 1
+                    writer.writerow(t)
+        print("saved {} shares to file: {}".format(i, path))
 
     def get_blocks_from_file(self, file=None):
         blocks_code = []
@@ -392,66 +557,6 @@ class collect_data(object):
             self.rd['tickers_csv_err'] = e
             print(e)
         return tickers_code
-
-    def save_shares_in_blocks(self, block, shares, path=None):
-        if (path is None):
-            path = get_para_path() + "blocks\\"
-            if (os.path.exists(path) is False):
-                os.makedirs(path)
-            path = path + "{}.csv".format(block)
-
-        valid_shares = self.get_shares_from_file()
-        i = 0
-        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
-            writer = csv.writer(csv_file)
-            for key, value in shares.items():
-                if (key in valid_shares):
-                    i = i + 1
-                    writer.writerow([key, value])
-        print("saved {} shares to file: {}".format(i, path))
-
-    def get_shares_in_blocks(self):
-        print("===> get_shares_in_blocks START <===")
-        blocks = self.get_blocks_from_file()
-        # 获取板块内个股. 网址: "http://quote.eastmoney.com/center/boardlist.html#boards-BK06111"
-        url = "http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?" \
-              "cb=jQuery112407525040804622392_1557980547906&type=CT&sty=FCOIATC&js=(%7Bdata%3A%5B(x)%5D%2CrecordsFiltered%3A(tot)%7D)&" \
-              "st=(ChangePercent)&sr=-1&ps=20&" \
-              + "token={}&_={}".format(get_token(), get__())
-        url_cmd_page = "&cmd=C.{}&p={}"
-
-        total = len(blocks)
-        idx = 0
-
-        for cmd in blocks:
-            idx += 1
-            print("===> {}/{}\tin get_shares_in_blocks".format(idx, total))
-            name = {}
-            r_old = None
-            page = 0
-            while (True):
-                page += 1
-                r = self.requests_get(
-                    url + url_cmd_page.format(cmd, page), "个股代码")
-                if (r_old == r.text):
-                    print("{} have pages:{}, shares:{}".format(cmd, page - 1, len(name)))
-                    # print(name)
-                    self.save_shares_in_blocks(cmd, name)
-                    break
-                else:
-                    r_old = r.text
-                    # print (r.text)
-                    shares = re.compile(
-                        r'\"(\d+,\w+,.*?),.*?\"', re.S).findall(r.text)
-                    print(shares)
-                    for i in shares:
-                        temp = i.split(',')
-                        # 去除B股, ST股
-                        if ('B' in temp[2] or 'ST' in temp[2]):
-                            continue
-                        else:
-                            name[temp[1] + temp[0]] = temp[2]
-        print("===> get_shares_in_blocks END <===")
 
     def get_all_indexs(self):
         # 指数信息
@@ -535,6 +640,39 @@ class collect_data(object):
                 print("code:{}, err:{}".format(code, e))
         self.rd['_____get_all_shares'] = self.time_str
         print("===> get_all_shares END <===")
+
+    def get_all_funds(self, tickers=None, retry=3):
+        # tickers = ['6012161', '3000012', ] # 列表格式, 前6为为代码, 最后一位1表示上海, 2表示深圳
+        if tickers is None:
+            self.fund_block = {}
+            tickers = self.get_shares_from_file()
+            print("===> get_all_funds START <===")
+        else:
+            print("===> get_all_shares RETRY <===")
+
+        total = len(tickers)
+        idx = 0
+        retry_code = []
+
+        for code in tickers:
+            try:
+                idx += 1
+                print("===> {}/{}\tin get_all_funds".format(idx, total))
+                l = self.get_fund(code)
+                # self.save_info(l, code)
+                # /////////// Dataframe
+            except Exception as e:
+                retry_code.append(code)
+                print("code:{}, err:{}".format(code, e))
+
+        if (len(retry_code) and retry):
+            self.get_all_funds(tickers=retry_code, retry=retry-1)
+        else:
+            # ///////// save file , save block
+            if retry <= 0:
+                print("===> get_all_funds END. FAILED to get {} <===".format(tickers))
+            else:
+                print("===> get_all_shares END <===")
 
     def update_check(self):
         print("===> update_check, START! <===")

@@ -87,6 +87,7 @@ class PandasModel(QAbstractTableModel):
     def __init__(self, data, parent=None):
         QAbstractTableModel.__init__(self, parent)
         self._data = data
+        self.index = list(self._data.index.values)
 
     def rowCount(self, parent=None):
         return len(self._data.values)
@@ -106,6 +107,17 @@ class PandasModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self._data.columns[col]
         return None
+
+    def sort(self,column, order):
+        self.layoutAboutToBeChanged.emit()
+        self._data = self._data.sort_values(by=list(self._data)[column], ascending=False if order else True)
+        self.index = list(self._data.index.values)
+        self.layoutChanged.emit()
+
+    def tableRow(self, row):
+        # print(row, self.index)
+        # print(self.index[row])
+        return self.index[row]
 
 
 class KItem(pg.GraphicsObject):

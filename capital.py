@@ -102,7 +102,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        self.blocks = pd.DataFrame(list(self.index.items()), columns=['code', 'name'])
+        self.blocks = pd.DataFrame(list(self.index.items()), columns=['code', 'name'], index=[-4,-3,-2,-1])
         blocks_csv = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
         self.blocks = self.blocks.append(blocks_csv)
         # print (self.blocks)
@@ -116,6 +116,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tableView.pressed.connect(self.tableClicked)
         self.tableView.installEventFilter(self) # eventFilter
         self.tableView.doubleClicked.connect(self.tableDoubleClicked)
+        self.tableView.setSortingEnabled(True)
 
         # 初始化GUI
         self.isTableBlocks = True
@@ -125,10 +126,10 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
     # ======= 操作复用函数 =======
     def set_table(self):
         if (self.isTableBlocks):
-            model = PandasModel(self.blocks)
+            self.model = PandasModel(self.blocks)
         else:
-            model = PandasModel(self.tickers)
-        self.tableView.setModel(model)
+            self.model = PandasModel(self.tickers)
+        self.tableView.setModel(self.model)
 
     def codeChoosed(self):
         text = self.lineEditSticker.text()
@@ -207,16 +208,19 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                     row = self.tableView.selectionModel().currentIndex().row() + 1
                 if (row >= -1):
                     column = self.tableView.selectionModel().currentIndex().column()
+                    if (column > 1):
+                        column = 1
                     if (row < 0):
                         row=0
                     if (self.isTableBlocks):
                         if (row >= len(self.blocks)):
                             row -= 1
-                        text = self.blocks.values[row][column]
+                        brow = self.model.tableRow(row) + 4  # 4 offset caused by self.index [-4,-3,-2,-1]
+                        text = self.blocks.values[brow][column]
                     else:
                         if (row >= len(self.tickers)):
                             row -= 1
-                        text = self.tickers.values[row][column]
+                        text = self.tickers.values[self.model.tableRow(row)][column]
                     self.lineEditSticker.setText(text)
                     self.codeChoosed()
         return False
@@ -228,9 +232,10 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             column = 1
         # print (row, column)
         if (self.isTableBlocks):
-            text = self.blocks.values[row][column]
+            brow = self.model.tableRow(row) + 4  # 4 offset caused by self.index [-4,-3,-2,-1]
+            text = self.blocks.values[brow][column]
         else:
-            text = self.tickers.values[row][column]
+            text = self.tickers.values[self.model.tableRow(row)][column]
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 
@@ -252,7 +257,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             dialog.show()
         else:
             pass
-            # //////////////////////显示基本面
+            # //////////////////////显示基本面, 直接打开网站即可
 
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
     def __init__(self, block, para={}, parent=None):
@@ -268,18 +273,18 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
         # 读取列表
         self.stickers = pd.read_csv(".\\_para\\blocks\\{}.csv".format(self.block_code), header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
-        # 排序 /////////////////////////////
 
         # 点击操作
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tableView.pressed.connect(self.sTableClicked)
         self.tableView.doubleClicked.connect(self.sTableDoubleClicked)
         self.tableView.installEventFilter(self) # eventFilter
+        self.tableView.setSortingEnabled(True)
 
         # 初始化GUI
         self.setWindowTitle("{} {}".format(self.block_code,self.block_name))
-        model = PandasModel(self.stickers)
-        self.tableView.setModel(model)
+        self.model = PandasModel(self.stickers)
+        self.tableView.setModel(self.model)
         drawChart(self.graphicsView,self.sfile,name=self.block_name,kNumber=self.spara)
 
     def eventFilter(self, obj, event):
@@ -296,8 +301,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
                         row=0
                     elif (row >= len(self.stickers)):
                         row -= 1
-                    code = self.stickers.values[row][0]
-                    name = self.stickers.values[row][1]
+                    srow = self.model.tableRow(row)
+                    code = self.stickers.values[srow][0]
+                    name = self.stickers.values[srow][1]
                     if (code != os.path.splitext(os.path.basename(self.sfile))[0]):
                         self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
                         drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
@@ -307,8 +313,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         # row = mi.row()
         # column = mi.column()
         # print (row, column)
-        code = self.stickers.values[mi.row()][0]
-        name = self.stickers.values[mi.row()][1]
+        srow = self.model.tableRow(mi.row())
+        code = self.stickers.values[srow][0]
+        name = self.stickers.values[srow][1]
         if (code !=  os.path.splitext(os.path.basename(self.sfile))[0]):
             self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
             drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
@@ -316,8 +323,10 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
     def sTableDoubleClicked(self, mi):
         pass
         # /////////////////////////显示基本面
-        # url2 = "http://f10.eastmoney.com/IndustryAnalysis/Index?type=web&code=SH601006#gsgm-0"
         # http://data.eastmoney.com/stockcalendar/601006.html 个股日历, 直接打开网页即可  / 个股解禁等等信息, 多个标签
+        # http://data.eastmoney.com/gdhs/detail/601006.html 股东户数
+        # http://data.eastmoney.com/bbsj/601006.html 业绩报表
+        # http://data.eastmoney.com/cjsj/hbgyl.html 货币供应量
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
