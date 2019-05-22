@@ -5,6 +5,7 @@ import smtplib
 import time
 import collect_data
 import collect_autofix
+import datetime
 from email.header import Header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -66,20 +67,18 @@ def send_mail(blocks, shares):
         smtp.quit()
 
 
-def alarm_clock():
-    print("alarm clock: 周一到周五 北京时间 16:00")
-    scheduler = BlockingScheduler()
-    scheduler.add_job(collect_data_process, 'cron', day_of_week='mon-fri',
-                      hour=16, minute=1, timezone='Asia/Shanghai')
-    scheduler.start()
+# def alarm_clock():
+#     scheduler = BlockingScheduler()
+#     print("alarm clock: 周一到周五 北京时间 16:00")
+#     scheduler.add_job(, 'cron', day_of_week='mon-fri',
+#                       hour=16, minute=1, timezone='Asia/Shanghai')
+#     scheduler.start()
 
-
-def collect_data_process():
-    print("start collect_data_silence")
+def collect_data_process(repeat=None):
+    print("start collect_data_silence at {}".format(datetime.datetime.now()))
     try:
         cd = collect_data.collect_data()
         if (cd.update_check()):
-            cd.get_all_indexs()
             cd.get_all_blocks()
             cd.get_all_shares()
             cd.update_finished()
@@ -88,12 +87,18 @@ def collect_data_process():
             send_mail(blocks, shares)
     except Exception as e:
         print(e)
-    print("end collect_data_silence")
+    print("end collect_data_silence at {}".format(datetime.datetime.now()))
+    if (repeat=="repeat"):
+        scheduler = BlockingScheduler()
+        next_run_time = datetime.datetime.now()+datetime.timedelta(hours=1)
+        scheduler.add_job(func=collect_data_process, args=('repeat',), next_run_time=next_run_time)
+        print("将于一小时后再次运行...")
+        scheduler.start()
 
 
 if __name__ == '__main__':
     me = singleton.SingleInstance()
-    collect_data_process()
     if len(sys.argv) == 2:
-        if sys.argv[1] == "alarm_clock":
-            alarm_clock()
+        collect_data_process(repeat=sys.argv[1])
+    else:
+        collect_data_process()

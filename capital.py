@@ -1,6 +1,7 @@
 import gui_main
 import gui_sub
 import subprocess
+import webbrowser
 from gui_misc import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -16,12 +17,6 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # 变量
         self.code="0000011"
         self.file = ".\\_data\\_info\\{}.csv".format(self.code)
-        self.index = {
-                    "0000011": "上证指数",
-                    "3990012": "深圳指数",
-                    "3990052": "中小板",
-                    "3990062": "创业板"
-                }
 
         # 工具按钮
         self.collectDate = QAction('Run collect_data', self)
@@ -71,24 +66,22 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # print (items_list)
 
         # 加载代码和名称, 用于自动匹配输入
-        items_list = list(self.index.values())
+        items_list = []
         # 读取csv文件获取股票名称
         try:
             with open( ".\\_para\\tickers.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                dicts = dict(reader)
-                items_list.extend(list(dicts.keys()))
-                items_list.extend(list(dicts.values()))
+                for row in reader:
+                    items_list.extend(row[0:2])
         except Exception as e:
             print (e)
-        # 读取csv文件获取板块名称
 
+        # 读取csv文件获取板块名称
         try:
             with open( ".\\_para\\blocks.csv", 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                dicts = dict(reader)
-                items_list.extend(list(dicts.keys()))
-                items_list.extend(list(dicts.values()))
+                for row in reader:
+                    items_list.extend(row[0:2])
         except Exception as e:
             print (e)
 
@@ -102,12 +95,16 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        self.blocks = pd.DataFrame(list(self.index.items()), columns=['code', 'name'], index=[-4,-3,-2,-1])
-        blocks_csv = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
-        self.blocks = self.blocks.append(blocks_csv)
+        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '20日', '流通市值', '平均市值', '净利润', 'PE', 'PB', 'ROE', '个股'],
+                                 dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('20日', 'f'), ('流通市值', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
+                                 encoding="utf-8", na_values='-')
         # print (self.blocks)
-        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
+        list_key = ['code', 'f14', 'res1', 'res2', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
+        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '20日', '基本面', '总市值', '净利润', 'PE', 'PB', 'ROE', '板块'],
+                                   dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('20日', 'f'), ('基本面', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
+                                   encoding="utf-8", na_values='-')
         # print (self.tickers)
+        # //////////////////////////////// 文件格式改了!!! 重新弄一下.
 
         # 点击操作
         self.buttonSwitch.clicked.connect(self.switchClicked)
@@ -121,7 +118,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # 初始化GUI
         self.isTableBlocks = True
         self.set_table()
-        drawChart(self.graphicsView,self.file,name=self.index[self.code],kNumber=self.kNumber)
+        drawChart(self.graphicsView,self.file,name='0000011',kNumber=self.kNumber)
 
     # ======= 操作复用函数 =======
     def set_table(self):
@@ -215,7 +212,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                     if (self.isTableBlocks):
                         if (row >= len(self.blocks)):
                             row -= 1
-                        brow = self.model.tableRow(row) + 4  # 4 offset caused by self.index [-4,-3,-2,-1]
+                        brow = self.model.tableRow(row)
                         text = self.blocks.values[brow][column]
                     else:
                         if (row >= len(self.tickers)):
@@ -232,32 +229,40 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             column = 1
         # print (row, column)
         if (self.isTableBlocks):
-            brow = self.model.tableRow(row) + 4  # 4 offset caused by self.index [-4,-3,-2,-1]
+            brow = self.model.tableRow(row)
             text = self.blocks.values[brow][column]
         else:
-            text = self.tickers.values[self.model.tableRow(row)][column]
+            brow = self.model.tableRow(row)
+            text = self.tickers.values[brow][column]
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 
     def tableDoubleClicked(self, mi):
         if (self.isTableBlocks):
-            block = self.blocks.values[mi.row()]
-            if block[0] not in self.index:
+            brow = self.model.tableRow(mi.row())
+            block = self.blocks.values[brow]
+            if block[0].startswith("BK"):
                 dialog = GuiSub(block, self.kNumber, parent=self)
                 dialog.show()
-        else:
-            pass
-            # /////////////////////////显示基本面
+            else:
+                url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
+                webbrowser.open(url)
+        else: # 打开个股基本面/信息网页
+            brow = self.model.tableRow(mi.row())
+            code = self.tickers.values[brow][0]
+            openBrowser(code)
 
     def moreClicked(self):
         code_list = list(self.blocks.code)
-        if (self.code in code_list) and (self.code not in self.index.keys()):
+        if not self.code.startswith("BK"):
+            url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
+            webbrowser.open(url)
+        elif self.code in code_list:
             row = code_list.index(self.code)
             dialog = GuiSub(self.blocks.values[row], self.kNumber, parent=self)
             dialog.show()
-        else:
-            pass
-            # //////////////////////显示基本面, 直接打开网站即可
+        else: # 打开个股基本面/信息网页
+            openBrowser(self.code)
 
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
     def __init__(self, block, para={}, parent=None):
@@ -273,7 +278,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
         # 读取列表
         self.stickers = pd.read_csv(".\\_para\\blocks\\{}.csv".format(self.block_code), header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
-
+        ## /////////////////////////////// 读取code就行了. pd从主文件读取, 然后删掉不要的.
         # 点击操作
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tableView.pressed.connect(self.sTableClicked)
@@ -321,12 +326,11 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
             drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
 
     def sTableDoubleClicked(self, mi):
-        pass
-        # /////////////////////////显示基本面
-        # http://data.eastmoney.com/stockcalendar/601006.html 个股日历, 直接打开网页即可  / 个股解禁等等信息, 多个标签
-        # http://data.eastmoney.com/gdhs/detail/601006.html 股东户数
-        # http://data.eastmoney.com/bbsj/601006.html 业绩报表
-        # http://data.eastmoney.com/cjsj/hbgyl.html 货币供应量
+        # 打开个股基本面/信息网页
+        srow = self.model.tableRow(mi.row())
+        code = self.stickers.values[srow][0]
+        openBrowser(code)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -6,6 +6,7 @@ import sys
 import re
 import csv
 import random
+import locale
 import pandas as pd
 
 ########### file / path ##########
@@ -37,7 +38,7 @@ def get_parameter_file():
 
 comment_pattern = re.compile(r'\s*#.*$')
 
-########### file / path ##########
+
 """
 HOW to use:
 with open('data_with_comments.csv') as f:
@@ -63,11 +64,20 @@ HOW to use:
 N_to_end = 9
 N_lines = 9
 data = loadData('test.txt', N_to_end, N_lines) # 从倒数第N_to_end行数开始读取N_lines行
-print data
+print (data)
 """
 def loadData(file_path, skip_n_end, rows_n, **kwargs):
-    lines = sum(1 for _ in csv.reader(open(file_path,'r', encoding='UTF-8')))
-    # print lines
+    # lines = sum(1 for _ in csv.reader(open(file_path,'r', encoding='UTF-8')))
+    lines = 0
+    fp = open(file_path, "r", encoding='utf-8')
+    while True:
+        buffer = fp.read(8*1024*1024)
+        if not buffer:
+            break
+        lines += buffer.count('\n')
+    fp.close()
+    # print(lines)
+
     if (skip_n_end == 0):
         skip_n_end = lines
     if (rows_n == 0):
@@ -91,3 +101,47 @@ def get_rt():
 
 def get__():
     return "0"
+
+
+########## number ##########
+"""
+Convert a number for human consumption
+
+Divisor can be 1, 1000, 1024
+
+If the locale has been set before this
+function is called, then numbers appropriate to the
+locale will be retured. This is commonly done like:
+    locale.setlocale(locale.LC_ALL,'')
+
+A divisor of 1 => the thousands seperator
+appropriate to ones locale is inserted.
+
+With other divisors the output is aligned
+in a 7 or 8 character column respectively,
+which one can strip() if the display is not
+using a fixed width font.
+"""
+def readableNum(num, divisor=1000, power=""):
+    num=float(num)
+    if divisor == 1000:
+        powers=[" ","K","M","G","T","P"]
+    elif divisor == 1024:
+        powers=["  ","Ki","Mi","Gi","Ti","Pi"]
+    elif divisor == 10000:
+        powers=[" ","万","亿","万亿","亿亿"]
+    else:
+        return locale.format("%.f",num,1)
+    if not power: power=powers[0]
+    while num >= 1000: #4 digits
+        num /= divisor
+        power=powers[powers.index(power)+1]
+    if power.strip():
+        num = locale.format("%.2f",num,1)
+    else:
+        num = locale.format("%.2f  ",num,1)
+    return "%s%s" % (num,power)
+
+
+if __name__ == '__main__':
+    print (readableNum(1264, divisor=10000))

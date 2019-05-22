@@ -1,9 +1,18 @@
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from myutil import *
+import webbrowser
 import numpy as np
 import pyqtgraph as pg
 
+def openBrowser(code):
+    url = 'http://data.eastmoney.com/stockcalendar/{}.html'.format(code[:-1]) # 个股日历
+    webbrowser.open(url)
+    # url = 'http://data.eastmoney.com/bbsj/{}.html'.format(code[:-1]) # 业绩报表
+    # webbrowser.open(url)
+    shsz = "SH" if (code[-1]==1) else "SZ"
+    url = 'http://f10.eastmoney.com/f10_v2/OperationsRequired.aspx?code={}{}#'.format(shsz, code[:-1]) # F10资料
+    webbrowser.open(url)
 
 def drawChart(graphicsView, file, kNumber='all', name=''):
     # 数据的最终格式:

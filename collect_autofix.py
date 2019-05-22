@@ -12,8 +12,6 @@ def check_report():
     with open(file, 'r') as f:
         for line in f.readlines():
             if line.startswith("data_start"):
-                process = "indexs"
-            elif line.startswith("_____get_all_indexs"):
                 process = "blocks"
                 list_blocks = []
             elif line.startswith("_____get_all_blocks"):

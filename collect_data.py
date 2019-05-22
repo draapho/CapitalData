@@ -5,10 +5,10 @@ import requests
 import datetime
 import time
 import pytz
+import json
 from myutil import *
 from tendo import singleton
 from ast import literal_eval
-
 
 class collect_data(object):
     def __init__(self):
@@ -58,9 +58,9 @@ class collect_data(object):
     #         # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
     #         detail_capital[0].split(',')[4]
     #     except Exception as e:
-    #         self.rd["detail_capital_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+    #         self.rd["detail_capital_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
     #             url, e, detail_capital)
-    #         print("detail_capital_{}, err:{}\r\ninfo:{}".format(
+    #         print("detail_capital_{}, err:{}\r\tinfo:{}".format(
     #             id, e, detail_capital))
     #         return None
     #
@@ -84,9 +84,9 @@ class collect_data(object):
     #         # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
     #         detail_price[1]
     #     except Exception as e:
-    #         self.rd["detail_price_{}".format(id)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+    #         self.rd["detail_price_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
     #             url, e, detail_price)
-    #         print("detail_price_{}, err:{}\r\ninfo:{}".format(id, e, detail_price))
+    #         print("detail_price_{}, err:{}\r\tinfo:{}".format(id, e, detail_price))
     #         return None
     #
     #     # 将所有信息打包成字典并返回
@@ -140,9 +140,9 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '0.74%', '-75811.38', '285986', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%', '-0.63%', '2019-01-11 15:26:49']
             list1[23]
         except Exception as e:
-            self.rd["info_capital_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+            self.rd["info_capital_{}".format(cmd)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
                 url, e, info_capital)
-            print("info_capital_{}, err:{}\r\ninfo:{}".format(cmd, e, info_capital))
+            print("info_capital_{}, err:{}\r\tinfo:{}".format(cmd, e, info_capital))
             return None
 
         # 单日股价. 网址: "http://data.eastmoney.com/zjlx/601006.html"
@@ -168,9 +168,9 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '18.73', '0.74', '14944410112', '122375663616', '0.85', '2535.10', '2539.55', '2554.79', '2533.36', '0.44', '0.87', '-']
             list2[13]
         except Exception as e:
-            self.rd["info_price_{}".format(cmd)] = "url: {}\r\nerr: {}\r\ninfo:{}".format(
+            self.rd["info_price_{}".format(cmd)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
                 url, e, info_price)
-            print("info_price_{}, err:{}\r\ninfo:{}".format(cmd, e, info_price))
+            print("info_price_{}, err:{}\r\tinfo:{}".format(cmd, e, info_price))
             return None
 
         list_info = []
@@ -327,6 +327,7 @@ class collect_data(object):
     def get_fund(self, code):
         # 基本面信息. 网址: "http://quote.eastmoney.com/sh601006.html"
         # 基本面信息: http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183046200764579979126_1558420775801&secid=1.601006&_=1558420777320
+        #            http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183002584313374160585_1558488528956&secid=0.000002&_=1558488529739
         # Chrome调试: Network->Filter 分别搜索 "quote-min.js" 和 "get?spt", 可以提取如下链接.
         # js代码文件: http://hqres.eastmoney.com/emag14/js/0509/quote-min.js?v=20190425
         # 相关内容:   http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281
@@ -342,7 +343,7 @@ class collect_data(object):
                 "diff": [{
                     "f9": 7.59,             // 市盈率
                     "f12": "601006",        // 代码
-                    "f13": 1,
+                    "f13": 1,               // 所在版块, 0表示深圳, 1表示上海
                     "f14": "大秦铁路",      // 名称
                     "f20": 121610354396,    // 总市值
                     "f23": 1.1,             // 市净率
@@ -396,17 +397,60 @@ class collect_data(object):
         });
         """
         url = "http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281" \
-            + "&cb={}&secid={}.{}&_={}".format(get_cb(), code[-1], code[:-1], get__())
-        print (url) # ////////////
+            + "&cb={}&secid={}.{}&_={}".format(get_cb(), '1' if code[-1]=='1' else '0', code[:-1], get__())
+        r = self.requests_get(url, "基本信息")
+        # print (r.text)
+        text = r.text[r.text.find("(")+1:-2]
+        # print (text)
+        list_share = []
+        list_block = []
+        try:
+            data = json.loads(text)['data']['diff']
+            print (data)
+            s=data[0]
+            b=data[1]
 
-        ######### ///////// 思路, 读取所有板块和个股的信息, 最后一下子存储到文件中, 所以要失败自调用
-        # ////////////////////// 保持文件的时候, 按照code自动排序一下!
-        # ////////////////////// 更新当日数据的时候, 把基本面信息和资金流一并写入到文件....
-        # print (column)  # 获取 ['\xa0', '总市值', '净资产', '净利润', '市盈率', '市净率', '毛利率', '净利率', 'ROE']
+            # 提取个股基本面数据
+            s['code'] = str(s['f12']) + ('1' if s['f13'] == '1' else '2')
+            # 基本面综合评分, 满分100
+            s['score'] = int(100-3.25 * (s['f3020'] + s['f3045'] + s['f3009'] + (5-s['f3023']) + s['f3049'] + s['f3129'] + s['f3037'] + s['f3135']-8))
+            # 基本面排名和详情
+            s['value'] = "{:2d}/{}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 总市值
+            s['profit'] = "{:2d}/{}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 净利润
+            s['PE'] = "{:.2f}/{:.2f}".format(b['f2009'],s['f9']) # 版块市盈率/市盈率
+            s['PB'] = "{:.2f}/{:.2f}".format(b['f2023'],s['f23']) # 版块市净率/市净率
+            s['ROE'] = "{:.2f}/{:.2f}".format(b['f2037'],s['f37']) # 版块ROE%/ROE
+            s['blk'] = "{:3d}/{}".format(b['f134'],b['f14']) # 个股数量/所属板块
+            # print (s)
+            #       含义: 代码, 名称 , 保留给资金流分析,  评分,   总市值,    净利润, 市盈率,市净率, ROE, 所属版块
+            list_key = ['code','f14', 'res1', 'res2', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
+            for k in list_key:
+                list_share.append(s.get(k,'-'))
+            # print (list_share)
 
-        fund_share[key] = values
-        print (fund_share)
-        return fund_share
+            # 提取版块基本面数据
+            b['code'] = b['f12']
+            # 基本面排名和详情
+            b['market'] = readableNum(b['f20'],divisor=10000)    # 流通市值
+            b['value'] = readableNum(b['f2020'],divisor=10000)    # 平均市值
+            b['profit'] = readableNum(b['f2045'],divisor=10000)  # 平均净利润
+            b['PE'] = b['f2009'] # 市盈率
+            b['PB'] = b['f2023'] # 市净率
+            b['ROE'] = b['f2037'] # ROE%
+            b['num'] = b['f134'] # 版块个数数量
+            #       含义: 代码, 名称 , 保留给资金流分析, 流通市值, 平均市值,平均净利润, 市盈率,市净率, ROE, 个股数量
+            list_key = ['code','f14', 'res1', 'res2', 'market', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
+            for k in list_key:
+                list_block.append(b.get(k,'-'))
+            # print (list_block)
+        except Exception as e:
+            raise Exception("get_fund\r\terr:{}\r\tinfo:{}".format(e, data))
+            # self.rd["get_fund_{}".format(code)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
+            #     url, e, data)
+            # print("get_fund_{}, err:{}\r\tinfo:{}".format(code, e, data))
+            # list_share = []
+            # list_block = []
+        return (list_share, list_block)
 
     def check_file(self, file, date):
         last_line = b""
@@ -414,11 +458,11 @@ class collect_data(object):
             # 读取文件最后一行
             with open(file, 'rb+') as f:
                 # 在文本文件中，没有使用b模式选项打开的文件，只允许从文件头开始,只能seek(offset,0)
-                if os.path.getsize(file) > 1000:
-                    f.seek(-1000, os.SEEK_END)  # 从文件末尾开始向前1000个字符
-                    lines = f.readlines()
-                else:
-                    lines = f.readlines()
+                # if os.path.getsize(file) > 1000:  ///////////////////////////////////
+                f.seek(-1000, os.SEEK_END)  # 从文件末尾开始向前1000个字符
+                lines = f.readlines()
+                # else:
+                    # lines = f.readlines()
                 try:
                     last_line = lines[-1]
                     date_last = last_line.decode().split(',')[0]
@@ -490,6 +534,21 @@ class collect_data(object):
     #     df.to_csv(path + fileName)
     #     print("saved {} details. Date: {}".format(fileName, date))
 
+    def save_fund(self, dict, file):
+        try:
+            dict.values()[0][10] # 正确的数据长度
+            print (dict.values()[0][10]) # ///////////////////////
+            keys = dict.keys()
+            with open(file, 'r', encoding="utf-8") as csv_file:
+                reader = csv.reader(csv_file)
+                for row in reader:
+                    if row[0] not in keys:
+                        dict[row[0]] = row # //////////////
+            # 读写文件 ...............
+        except Exception as e:
+            self.rd['save_fund'] = e
+            print(e)
+
     def save_shares_to_file(self, path=None):
         if (path is None):
             if (os.path.exists(get_para_path()) is False):
@@ -500,7 +559,7 @@ class collect_data(object):
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
             for t in sorted(shares.items(),key=lambda item:item[0]):
-                writer.writerow(t)
+                writer.writerow(list(t) + ['-' for n in range(9)])
         print("saved shares to file: {}".format(path))
 
     def save_blocks_to_file(self, path=None):
@@ -512,7 +571,7 @@ class collect_data(object):
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
             for t in sorted(blocks.items(),key=lambda item:item[0]):
-                writer.writerow(t)
+                writer.writerow(list(t) + ['-' for n in range(9)])
         print("saved blocks to file: {}".format(path))
 
     def save_shares_in_blocks(self, block, shares, path=None):
@@ -558,31 +617,8 @@ class collect_data(object):
             print(e)
         return tickers_code
 
-    def get_all_indexs(self):
-        # 指数信息
-        name = {
-            "0000011": "上证指数",
-            "3990012": "深圳指数",
-            "3990052": "中小板",
-            "3990062": "创业板"
-        }
-
-        print("===> get_all_indexs START <===")
-        for code in name:
-            try:
-                l = self.get_code_info(code)
-                # print(l)
-                self.save_info(l, code)
-                # d = self.get_day_detail(code)
-                # # print(d)
-                # self.save_detail(d, code)
-            except Exception as e:
-                self.rd[code] = e
-                print("code:{}, err:{}".format(code, e))
-        self.rd['_____get_all_indexs'] = self.time_str
-        print("===> get_all_indexs END <===")
-
     def get_all_blocks(self, blocks=None):
+        # //////////////////////// 合并为get_all_capital, 并且和get_all_funds一样有自动修复机制, 去掉或修改 collect_autofix 文件.
         # blocks = ['BK04561', 'BK04771'] # 列表格式
         if blocks is None:
             blocks = self.get_blocks_from_file()
@@ -607,7 +643,7 @@ class collect_data(object):
                 # # print(d)
                 # self.save_detail(d, code)
             except Exception as e:
-                self.rd[code] = e
+                self.rd["block_{}".format(code)] = e
                 print("code:{}, err:{}".format(code, e))
         self.rd['_____get_all_blocks'] = self.time_str
         print("===> get_all_blocks END <===")
@@ -636,17 +672,22 @@ class collect_data(object):
                 # # print(d)
                 # self.save_detail(d, code)
             except Exception as e:
-                self.rd[code] = e
+                self.rd["share_{}".format(code)] = e
                 print("code:{}, err:{}".format(code, e))
         self.rd['_____get_all_shares'] = self.time_str
         print("===> get_all_shares END <===")
 
-    def get_all_funds(self, tickers=None, retry=3):
+    def get_all_funds(self, tickers=None, retry=-1):
+        # 读取所有板块和个股的基本面信息, 最后一下子存储到文件中, 所以要失败自调用
         # tickers = ['6012161', '3000012', ] # 列表格式, 前6为为代码, 最后一位1表示上海, 2表示深圳
-        if tickers is None:
-            self.fund_block = {}
-            tickers = self.get_shares_from_file()
+
+        if retry < 0:
             print("===> get_all_funds START <===")
+            retry = 3
+            self.fund_ticker = {}
+            self.fund_block = {}
+            if tickers is None:
+                tickers = self.get_shares_from_file()
         else:
             print("===> get_all_shares RETRY <===")
 
@@ -659,20 +700,26 @@ class collect_data(object):
                 idx += 1
                 print("===> {}/{}\tin get_all_funds".format(idx, total))
                 l = self.get_fund(code)
-                # self.save_info(l, code)
-                # /////////// Dataframe
+                self.fund_ticker[code] = l[0]
+                self.fund_block[l[1][0]] = l[1]
             except Exception as e:
                 retry_code.append(code)
+                self.rd['fund_{}'.format(code)] = e
                 print("code:{}, err:{}".format(code, e))
 
         if (len(retry_code) and retry):
             self.get_all_funds(tickers=retry_code, retry=retry-1)
         else:
-            # ///////// save file , save block
+            # print (self.fund_ticker)
+            # print (self.fund_block)
+            self.save_fund(self.fund_ticker, get_para_path+"tickers.csv")
+            self.save_fund(self.fund_block, get_para_path+"blocks.csv")
             if retry <= 0:
-                print("===> get_all_funds END. FAILED to get {} <===".format(tickers))
+                self.rd['_____get_all_funds'] = "END. Fail to get {}".format(retry_code)
+                print("===> get_all_funds END. Fail to get {} <===".format(retry_code))
             else:
-                print("===> get_all_shares END <===")
+                self.rd['_____get_all_funds'] = "SUCCESS"
+                print("===> get_all_funds END <===")
 
     def update_check(self):
         print("===> update_check, START! <===")
@@ -737,7 +784,6 @@ class collect_data(object):
 
 def collect_data_test(cd):
     if (cd.update_check()):
-        # cd.get_all_indexs()
         # cd.get_all_blocks()
         # cd.get_all_shares()
         cd.update_finished()
@@ -774,4 +820,6 @@ if __name__ == '__main__':
             print(e)
     else:
         # test purpose
-        collect_data_test(cd)
+        # collect_data_test(cd)
+        # cd.get_all_funds(tickers=['6012161', '3000012'])
+        cd.save_blocks_to_file()
