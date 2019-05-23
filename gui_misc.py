@@ -73,16 +73,16 @@ def drawChart(graphicsView, file, kNumber='all', name=''):
     # 导入数据
     item = KItem(quotes[['open', 'high', 'low', 'close']])
     p1.addItem(item)
-    day5 = quotes['close'].rolling(5).mean()  # 增加 5日线
-    p1.plot(day5, pen="#ffffff")  # 白色
-    day20 = quotes['close'].rolling(20).mean()  # 增加 20日线
+    # day5 = quotes['close'].rolling(5).mean()  # 增加 5日线
+    # p1.plot(day5, pen="#ffffff")  # 白色
+    day20 = quotes['close'].rolling(24).mean()  # 增加 24日线
     p1.plot(day20, pen="#00ffff")  # 青色
 
     item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
     p2.addItem(item)
-    day5 = quotes['main'].rolling(5).mean()  # 增加 5日线
-    p2.plot(day5, pen="#ffffff")
-    day20 = quotes['main'].rolling(20).mean()  # 增加 20日线
+    # day5 = quotes['main'].rolling(5).mean()  # 增加 5日线
+    # p2.plot(day5, pen="#ffffff")
+    day20 = quotes['main'].rolling(24).mean()  # 增加 24日线
     p2.plot(day20, pen="#00ffff")
 
     # # 参考1, 使用pyqtgraph: https://zmister.com/archives/187.html

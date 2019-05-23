@@ -2,16 +2,17 @@
 
 # Form implementation generated from reading ui file 'gui_sub.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(700, 400)
+        Dialog.resize(900, 450)
         self.horizontalLayout = QtWidgets.QHBoxLayout(Dialog)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.splitter = QtWidgets.QSplitter(Dialog)
@@ -38,6 +39,7 @@ class Ui_Dialog(object):
         self.graphicsView.setObjectName("graphicsView")
         self.verticalLayout.addWidget(self.graphicsView)
         self.widget_2 = QtWidgets.QWidget(self.splitter)
+        self.widget_2.setMinimumSize(QtCore.QSize(400, 0))
         self.widget_2.setObjectName("widget_2")
         self.gridLayout = QtWidgets.QGridLayout(self.widget_2)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
@@ -61,7 +63,9 @@ class Ui_Dialog(object):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
 
+
 from pyqtgraph import GraphicsLayoutWidget
+
 
 if __name__ == "__main__":
     import sys
@@ -71,4 +75,3 @@ if __name__ == "__main__":
     ui.setupUi(Dialog)
     Dialog.show()
     sys.exit(app.exec_())
-

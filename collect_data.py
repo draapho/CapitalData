@@ -6,6 +6,8 @@ import datetime
 import time
 import pytz
 import json
+import numpy as np
+import pandas as pd
 from myutil import *
 from tendo import singleton
 from ast import literal_eval
@@ -14,103 +16,141 @@ class collect_data(object):
     def __init__(self):
         self.time_str = None
         self.rd = {}
+        self.check_s = ['f3020', 'f3045', 'f3009', 'f3023', 'f3049', 'f3129', 'f3037', 'f3135', 'f1020', 'f20', 'f1045', 'f45', 'f9', 'f23', 'f37']
+        self.check_b = ['f2009', 'f2023', 'f2037', 'f134', 'f20', 'f2020', 'f2045', ]
+
+    """
+    def get_day_detail(self, id):
+        # 资金流明细, 走势图. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
+        # 分时资金流: http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id=0000011&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5&_=1558414459473
+        # js代码文件: http://data.eastmoney.com/js_001/fn_zjlx.js?201806021830
+        # 相关内容:   http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id=" + code + "&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5
+        url = "http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id={}".format(id) \
+            + "&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5" \
+            + "&_={}".format(get__())
+        r = self.requests_get(url, "资金明细")
+        # print (r.text)
+
+        try:
+            pattern = r'\"ya\":\[(.*?)\]'
+            detail_capital = re.compile(pattern, re.S).findall(r.text)
+            # print (detail_capital[0])
+            pattern = r'\"(.*?,.*?,.*?,.*?)\",?'
+            detail_capital = re.compile(
+                pattern, re.S).findall(detail_capital[0])
+            # print (detail_capital)
+            # 只保存了 "ya" 下的数值. "xa"被滤除, 其格式固定, 为9:31-11:30, 13:01-15:00, 间隔为1分钟的时间, 共240个时间间隔.
+            # "xa":"             09:31,                                  09:32,                                   09:33,                                  ...,11:30,13:01,...,15:00,"
+            # "ya" 含义(亿元):   '主力   超大    大单    中单   小单'  , '主力    超大   大单    中单   小单'     '主力    超大    大单   中单   小单',   ...
+            # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
+            detail_capital[0].split(',')[4]
+        except Exception as e:
+            self.rd["detail_capital_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
+                url, e, detail_capital)
+            print("detail_capital_{}, err:{}\r\n\tinfo:{}".format(
+                id, e, detail_capital))
+            return None
+
+        # 股价明细, 走势图.网址: "http://quote.eastmoney.com/zs000001.html"
+        # 分时股价:   http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd&cb=jQuery183012573462323834872_1558414725983&id=0000011&type=r&iscr=false&_=1558414728436
+        # js代码文件: http://hqres.eastmoney.com/EM15AGIndex/js/emchart.min.js
+        # 相关内容:        //pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd ,可知缺少参数 cb type iscr
+        url = "http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd" \
+            + "&cb={}&id={}&type=r&iscr=false&_={}".format(get_cb(), id, get__())
+        r = self.requests_get(url, "股价明细")
+        # print (r.text)
+
+        try:
+            pattern = r'\"data\":\[(.*?)\]\}'
+            detail_price = re.compile(pattern, re.S).findall(r.text)
+            # print (detail_price[0])
+            pattern = r'\".*?,(.*?),.*?,.*?,.*?\",?'
+            detail_price = re.compile(pattern, re.S).findall(detail_price[0])
+            # print (detail_price)
+            # 只保存了每分钟的股价, 其格式固定, 为9:30-11:30, 13:01-15:00, 间隔为1分钟的时间, 共241个时间间隔.
+            # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
+            detail_price[1]
+        except Exception as e:
+            self.rd["detail_price_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
+                url, e, detail_price)
+            print("detail_price_{}, err:{}\r\n\tinfo:{}".format(id, e, detail_price))
+            return None
+
+        # 将所有信息打包成字典并返回
+        day_details = {}
+        # 对capital_info降维, 变为 [0.1205,0.8402,-0.7196,-0.5943,0.4737, -0.3273,0.9383,-1.2656,-0.7716,1.0989, ...]
+        capital_temp = [x for l in detail_capital for x in l.split(',')]
+        day_details["main"] = capital_temp[0::5]
+        day_details["super"] = capital_temp[1::5]
+        day_details["large"] = capital_temp[2::5]
+        day_details["middle"] = capital_temp[3::5]
+        day_details["small"] = capital_temp[4::5]
+        day_details["value"] = detail_price[1:]  # 舍弃9:30的开盘值, 和资金流数据对齐.
+        # print (detail_capital)
+        # print (capital_temp)
+        # print (day_details["main"])
+        # print (day_details["super"])
+        # print (day_details["large"])
+        # print (day_details["middle"])
+        # print (day_details["small"])
+        # print (day_details["value"])
+
+        # 字典格式, 包含当日股价详情和资金流详情. 键值: "value", "main", "super", "large", "middle", "small"
+        # print (day_details)
+        return day_details
+
+    def save_detail(self, detail, fileName, path=None):
+        if detail is None:
+            print("fail to save_detail. fileName: {}".format(fileName))
+        if self.time_str is None:
+            raise Exception("failed! save_detail: NO time information.")
+        else:
+            ymd = self.time_str.split("-")
+            ymd[2] = ymd[2].split()[0]
+            date = self.time_str.split()[0]
+            # print (ymd)
+        if (path is None):
+            path = get_cur_dir() + \
+                "\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
+        fileName += ".csv"
+        # print(path + fileName)
+
+        # 如果不是收盘, 就需要对齐数据. 否则无法DataFrame转换
+        length = len(detail["main"]) - len(detail["value"])
+        if (length > 0):
+            temp_list = [''] * length
+            detail["value"].extend(temp_list)
+
+        df = pd.DataFrame(detail)
+        # print (df)
+        if (os.path.exists(path) is False):
+            os.makedirs(path)
+        df.to_csv(path + fileName)
+        print("saved {} details. Date: {}".format(fileName, date))
+
+    def get_detail_example:
+        d = self.get_day_detail(code)
+        # print(d)
+        self.save_detail(d, code)
+    """
 
     def requests_get(self, url, comment=""):
         for i in range(3):
             try:
-                print("{} {}".format(comment, url))
-                r = requests.get(url, timeout=30)
+                # print("{} {}".format(comment, url))  /////////////////////////////////////////
+                r = requests.get(url, timeout=20)
                 # print (r.text)
                 break
             except Exception as e:
                 t = time.strftime("%H%M%S", time.localtime())
                 self.rd["url_err_{}".format(t)] = url
                 # 10s后重试连接
-                print("10s后重试. 错误:{}".format(e))
+                # print("10s后重试. 错误:{}".format(e)) /////////////////////////////////
                 time.sleep(10)
                 r = None
         if r is None:
-            raise Exception("===>FAILED! requests_get: {}".format(url))
+            raise Exception("requests_get FAILED: {}".format(url))
         return r
-
-    # def get_day_detail(self, id):
-    #     # 资金流明细, 走势图. 网址: "http://data.eastmoney.com/zjlx/zs000001.html"
-    #     # 分时资金流: http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id=0000011&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5&_=1558414459473
-    #     # js代码文件: http://data.eastmoney.com/js_001/fn_zjlx.js?201806021830
-    #     # 相关内容:   http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id=" + code + "&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5
-    #     url = "http://ff.eastmoney.com/EM_CapitalFlowInterface/api/js?id={}".format(id) \
-    #         + "&type=ff&check=MLBMS&cb=var%20aff_data=&js={(x)}&rtntype=3&acces_token=1942f5da9b46b069953c873404aad4b5" \
-    #         + "&_={}".format(get__())
-    #     r = self.requests_get(url, "资金明细")
-    #     # print (r.text)
-    #
-    #     try:
-    #         pattern = r'\"ya\":\[(.*?)\]'
-    #         detail_capital = re.compile(pattern, re.S).findall(r.text)
-    #         # print (detail_capital[0])
-    #         pattern = r'\"(.*?,.*?,.*?,.*?)\",?'
-    #         detail_capital = re.compile(
-    #             pattern, re.S).findall(detail_capital[0])
-    #         # print (detail_capital)
-    #         # 只保存了 "ya" 下的数值. "xa"被滤除, 其格式固定, 为9:31-11:30, 13:01-15:00, 间隔为1分钟的时间, 共240个时间间隔.
-    #         # "xa":"             09:31,                                  09:32,                                   09:33,                                  ...,11:30,13:01,...,15:00,"
-    #         # "ya" 含义(亿元):   '主力   超大    大单    中单   小单'  , '主力    超大   大单    中单   小单'     '主力    超大    大单   中单   小单',   ...
-    #         # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
-    #         detail_capital[0].split(',')[4]
-    #     except Exception as e:
-    #         self.rd["detail_capital_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
-    #             url, e, detail_capital)
-    #         print("detail_capital_{}, err:{}\r\tinfo:{}".format(
-    #             id, e, detail_capital))
-    #         return None
-    #
-    #     # 股价明细, 走势图.网址: "http://quote.eastmoney.com/zs000001.html"
-    #     # 分时股价:   http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd&cb=jQuery183012573462323834872_1558414725983&id=0000011&type=r&iscr=false&_=1558414728436
-    #     # js代码文件: http://hqres.eastmoney.com/EM15AGIndex/js/emchart.min.js
-    #     # 相关内容:        //pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd ,可知缺少参数 cb type iscr
-    #     url = "http://pdfm.eastmoney.com/EM_UBG_PDTI_Fast/api/js?rtntype=5&token=4f1862fc3b5e77c150a2b985b12db0fd" \
-    #         + "&cb={}&id={}&type=r&iscr=false&_={}".format(get_cb(), id, get__())
-    #     r = self.requests_get(url, "股价明细")
-    #     # print (r.text)
-    #
-    #     try:
-    #         pattern = r'\"data\":\[(.*?)\]\}'
-    #         detail_price = re.compile(pattern, re.S).findall(r.text)
-    #         # print (detail_price[0])
-    #         pattern = r'\".*?,(.*?),.*?,.*?,.*?\",?'
-    #         detail_price = re.compile(pattern, re.S).findall(detail_price[0])
-    #         # print (detail_price)
-    #         # 只保存了每分钟的股价, 其格式固定, 为9:30-11:30, 13:01-15:00, 间隔为1分钟的时间, 共241个时间间隔.
-    #         # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
-    #         detail_price[1]
-    #     except Exception as e:
-    #         self.rd["detail_price_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
-    #             url, e, detail_price)
-    #         print("detail_price_{}, err:{}\r\tinfo:{}".format(id, e, detail_price))
-    #         return None
-    #
-    #     # 将所有信息打包成字典并返回
-    #     day_details = {}
-    #     # 对capital_info降维, 变为 [0.1205,0.8402,-0.7196,-0.5943,0.4737, -0.3273,0.9383,-1.2656,-0.7716,1.0989, ...]
-    #     capital_temp = [x for l in detail_capital for x in l.split(',')]
-    #     day_details["main"] = capital_temp[0::5]
-    #     day_details["super"] = capital_temp[1::5]
-    #     day_details["large"] = capital_temp[2::5]
-    #     day_details["middle"] = capital_temp[3::5]
-    #     day_details["small"] = capital_temp[4::5]
-    #     day_details["value"] = detail_price[1:]  # 舍弃9:30的开盘值, 和资金流数据对齐.
-    #     # print (detail_capital)
-    #     # print (capital_temp)
-    #     # print (day_details["main"])
-    #     # print (day_details["super"])
-    #     # print (day_details["large"])
-    #     # print (day_details["middle"])
-    #     # print (day_details["small"])
-    #     # print (day_details["value"])
-    #
-    #     # 字典格式, 包含当日股价详情和资金流详情. 键值: "value", "main", "super", "large", "middle", "small"
-    #     # print (day_details)
-    #     return day_details
 
     def get_code_info(self, cmd):
         # 单日资金流. 网址: "http://data.eastmoney.com/zjlx/601006.html"
@@ -140,9 +180,7 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '0.74%', '-75811.38', '285986', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%', '-0.63%', '2019-01-11 15:26:49']
             list1[23]
         except Exception as e:
-            self.rd["info_capital_{}".format(cmd)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
-                url, e, info_capital)
-            print("info_capital_{}, err:{}\r\tinfo:{}".format(cmd, e, info_capital))
+            raise Exception("get_code_info capital ERROR\r\n\turl:{}\r\n\tinfo_capital:{}\r\n\terr:{}".format(url, info_capital, e))
             return None
 
         # 单日股价. 网址: "http://data.eastmoney.com/zjlx/601006.html"
@@ -168,9 +206,7 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '18.73', '0.74', '14944410112', '122375663616', '0.85', '2535.10', '2539.55', '2554.79', '2533.36', '0.44', '0.87', '-']
             list2[13]
         except Exception as e:
-            self.rd["info_price_{}".format(cmd)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
-                url, e, info_price)
-            print("info_price_{}, err:{}\r\tinfo:{}".format(cmd, e, info_price))
+            raise Exception("get_code_info price ERROR\r\n\turl:{}\r\n\tinfo_price:{}\r\n\terr:{}".format(url, info_price, e))
             return None
 
         list_info = []
@@ -185,6 +221,143 @@ class collect_data(object):
         # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
         # self.get_captial_details(cmd)
         return list_info
+
+    def get_code_fund(self, code):
+        # 基本面信息. 网址: "http://quote.eastmoney.com/sh601006.html"
+        # 基本面信息: http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183046200764579979126_1558420775801&secid=1.601006&_=1558420777320
+        #            http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183002584313374160585_1558488528956&secid=0.000002&_=1558488529739
+        # Chrome调试: Network->Filter 分别搜索 "quote-min.js" 和 "get?spt", 可以提取如下链接.
+        # js代码文件: http://hqres.eastmoney.com/emag14/js/0509/quote-min.js?v=20190425
+        # 相关内容:   http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281
+        """
+        jQuery18307755203476525021_1558398132890({
+            "rc": 0,
+            "rt": 18,
+            "svr": 181403912,
+            "lt": 2,
+            "full": 1,
+            "data": {
+                "total": 2,
+                "diff": [{
+                    "f9": 7.59,             // 市盈率
+                    "f12": "601006",        // 代码
+                    "f13": 1,               // 所在版块, 0表示深圳, 1表示上海
+                    "f14": "大秦铁路",      // 名称
+                    "f20": 121610354396,    // 总市值
+                    "f23": 1.1,             // 市净率
+                    "f37": 3.69,            // ROE %
+                    "f45": 4005657757.0,    // 净利润
+                    "f49": 26.2073,         // 毛利率
+                    "f129": 20.29,          // 净利率
+                    "f134": "-",
+                    "f135": 118771503514.0, // 净资产
+                    "f1020": 2,             // 总市值排名
+                    "f1113": 8,
+                    "f1045": 1,             // 净利润排名
+                    "f1009": 2,             // 市盈率排名
+                    "f1023": 48,            // 市净率排名
+                    "f1049": 12,            // 毛利率排名
+                    "f1129": 6,             // 净利率排名
+                    "f1037": 10,            // ROE排名
+                    "f1135": 1,             // 净资产排名
+                    ...
+                    "f3020": 1,                 // 总市值分数: 1-高
+                    "f3113": 1,
+                    "f3045": 1,                 // 净利润分数: 3-较低
+                    "f3009": 1,                 // 市盈率分数: 3-较低
+                    "f3023": 4,                 // 市净率分数: 4-低 (高不好!)
+                    "f3049": 1,                 // 毛利率分数: 1-高
+                    "f3129": 1,                 // 净利率分数: 3-较低
+                    "f3037": 1,                 // ROE分数: 3-较低
+                    "f3135": 1,                 // 净资产分数: 2-较高
+                    ...
+                }, {
+                    "f9": 16.61,
+                    "f12": "BK0422",
+                    "f13": 90,
+                    "f14": "交运物流",
+                    "f20": 728481824000,            // 流通市值
+                    "f134": 57,                     // 板块个股数量
+                    ...
+                    "f2020": 12654500302.84,        // 总市值
+                    "f2113": 4.52,
+                    "f2045": 179833436.99,          // 净利润
+                    "f2009": 46.99,                 // 市盈率
+                    "f2023": 2.45,                  // 市净率
+                    "f2049": 18.75,                 // 毛利率
+                    "f2129": 4.18,                  // 净利率
+                    "f2037": 1.77,                  // ROE
+                    "f2135": 7805660590.25,         // 净资产
+                    "f2115": 38.84,
+                    ...
+                }]
+            }
+        });
+        """
+        url = "http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281" \
+            + "&cb={}&secid={}.{}&_={}".format(get_cb(), '1' if code[-1]=='1' else '0', code[:-1], get__())
+        r = self.requests_get(url, "基本信息")
+        # print (r.text)
+        try:
+            text = r.text[r.text.find("(")+1:-2]
+            # print (text)
+            data = json.loads(text)['data']['diff']
+            # print (data)
+            s=data[0]
+            b=data[1]
+            list_share = []
+            list_block = []
+
+            # 检查数据合法性
+            for i in self.check_s:
+                try:
+                    float(s[i])
+                except ValueError:
+                    s[i] = 0
+            for i in self.check_b:
+                try:
+                    float(b[i])
+                except ValueError:
+                    b[i] = 0
+
+            # 提取个股基本面数据
+            s['code'] = str(s['f12']) + ('1' if s['f13'] == '1' else '2')
+            # 基本面综合评分, 满分100
+            s['score'] = int(100-3.25 * (s['f3020'] + s['f3045'] + s['f3009'] + (5-s['f3023']) + s['f3049'] + s['f3129'] + s['f3037'] + s['f3135']-8))
+            # 基本面排名和详情
+            s['value'] = "{:2d}/{}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 总市值
+            s['profit'] = "{:2d}/{}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 净利润
+            s['PE'] = "{:.2f}/{:.2f}".format(b['f2009'],s['f9']) # 版块市盈率/市盈率
+            s['PB'] = "{:.2f}/{:.2f}".format(b['f2023'],s['f23']) # 版块市净率/市净率
+            s['ROE'] = "{:.2f}/{:.2f}".format(b['f2037'],s['f37']) # 版块ROE%/ROE
+            s['blk'] = "{:3d}/{}".format(b['f134'],b['f14']) # 个股数量/所属板块
+            # print (s)
+            #       含义: 代码, 名称 , 保留给资金流分析,         评分,   总市值,    净利润, 市盈率,市净率, ROE, 所属版块
+            list_key = ['code','f14', 'res1', 'res2', 'res3', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
+            for k in list_key:
+                list_share.append(s.get(k,'-'))
+            # print (list_share)
+
+            # 提取版块基本面数据
+            b['code'] = b['f12'] + '1'
+            # 基本面排名和详情
+            b['market'] = readableNum(b['f20'],divisor=10000)    # 流通市值
+            b['value'] = readableNum(b['f2020'],divisor=10000)    # 平均市值
+            b['profit'] = readableNum(b['f2045'],divisor=10000)  # 平均净利润
+            b['PE'] = b['f2009'] # 市盈率
+            b['PB'] = b['f2023'] # 市净率
+            b['ROE'] = b['f2037'] # ROE%
+            b['num'] = b['f134'] # 版块个数数量
+            #       含义: 代码, 名称 , 保留给资金流分析,         流通市值, 平均市值,平均净利润, 市盈率,市净率, ROE, 个股数量
+            list_key = ['code','f14', 'res1', 'res2', 'res3', 'market', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
+            for k in list_key:
+                list_block.append(b.get(k,'-'))
+            # print (list_block)
+            return (list_share, list_block)
+        except Exception as e:
+            # raise Exception("get_code_fund err\r\n\turl:{}\r\n\tdata:{}\r\n\terr:{}".format(url, data, e)) ///////////////////////
+            raise Exception("get_code_fund err\r\n\turl:{}\r\n\tdata:{}\r\n\terr:{}\r\n\ts:{}\r\n\tb:{}\r\n\tlist_s:{}\r\n\tlist_b:{}".format(url, data, e, s, b, list_share, list_block))
+            return None
 
     def get_blocks_from_web(self):
         print("===> get_blocks_from_web START <===")
@@ -291,11 +464,10 @@ class collect_data(object):
         url_cmd_page = "&cmd=C.{}&p={}"
 
         total = len(blocks)
-        idx = 0
-
-        for cmd in blocks:
-            idx += 1
-            print("===> {}/{}\tin get_shares_in_blocks".format(idx, total))
+        for i, cmd in enumerate(blocks,1):
+            print("===> {}/{}\tget_shares_in_blocks({})".format(i, total, cmd))
+            if not cmd.startswith("BK"):
+                continue
             name = {}
             r_old = None
             page = 0
@@ -304,8 +476,7 @@ class collect_data(object):
                 r = self.requests_get(
                     url + url_cmd_page.format(cmd, page), "个股代码")
                 if (r_old == r.text):
-                    print("{} have pages:{}, shares:{}".format(
-                        cmd, page - 1, len(name)))
+                    print("{} have {} pages, {} shares.".format(cmd, page - 1, len(name)))
                     # print(name)
                     self.save_shares_in_blocks(cmd, name)
                     break
@@ -324,255 +495,46 @@ class collect_data(object):
                             name[temp[1] + temp[0]] = temp[2]
         print("===> get_shares_in_blocks END <===")
 
-    def get_fund(self, code):
-        # 基本面信息. 网址: "http://quote.eastmoney.com/sh601006.html"
-        # 基本面信息: http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183046200764579979126_1558420775801&secid=1.601006&_=1558420777320
-        #            http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281&cb=jQuery183002584313374160585_1558488528956&secid=0.000002&_=1558488529739
-        # Chrome调试: Network->Filter 分别搜索 "quote-min.js" 和 "get?spt", 可以提取如下链接.
-        # js代码文件: http://hqres.eastmoney.com/emag14/js/0509/quote-min.js?v=20190425
-        # 相关内容:   http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281
-        """
-        jQuery18307755203476525021_1558398132890({
-            "rc": 0,
-            "rt": 18,
-            "svr": 181403912,
-            "lt": 2,
-            "full": 1,
-            "data": {
-                "total": 2,
-                "diff": [{
-                    "f9": 7.59,             // 市盈率
-                    "f12": "601006",        // 代码
-                    "f13": 1,               // 所在版块, 0表示深圳, 1表示上海
-                    "f14": "大秦铁路",      // 名称
-                    "f20": 121610354396,    // 总市值
-                    "f23": 1.1,             // 市净率
-                    "f37": 3.69,            // ROE %
-                    "f45": 4005657757.0,    // 净利润
-                    "f49": 26.2073,         // 毛利率
-                    "f129": 20.29,          // 净利率
-                    "f134": "-",
-                    "f135": 118771503514.0, // 净资产
-                    "f1020": 2,             // 总市值排名
-                    "f1113": 8,
-                    "f1045": 1,             // 净利润排名
-                    "f1009": 2,             // 市盈率排名
-                    "f1023": 48,            // 市净率排名
-                    "f1049": 12,            // 毛利率排名
-                    "f1129": 6,             // 净利率排名
-                    "f1037": 10,            // ROE排名
-                    "f1135": 1,             // 净资产排名
-                    ...
-                    "f3020": 1,                 // 总市值分数: 1-高
-                    "f3113": 1,
-                    "f3045": 1,                 // 净利润分数: 3-较低
-                    "f3009": 1,                 // 市盈率分数: 3-较低
-                    "f3023": 4,                 // 市净率分数: 4-低 (高不好!)
-                    "f3049": 1,                 // 毛利率分数: 1-高
-                    "f3129": 1,                 // 净利率分数: 3-较低
-                    "f3037": 1,                 // ROE分数: 3-较低
-                    "f3135": 1,                 // 净资产分数: 2-较高
-                    ...
-                }, {
-                    "f9": 16.61,
-                    "f12": "BK0422",
-                    "f13": 90,
-                    "f14": "交运物流",
-                    "f20": 728481824000,            // 流通市值
-                    "f134": 57,                     // 板块个股数量
-                    ...
-                    "f2020": 12654500302.84,        // 总市值
-                    "f2113": 4.52,
-                    "f2045": 179833436.99,          // 净利润
-                    "f2009": 46.99,                 // 市盈率
-                    "f2023": 2.45,                  // 市净率
-                    "f2049": 18.75,                 // 毛利率
-                    "f2129": 4.18,                  // 净利率
-                    "f2037": 1.77,                  // ROE
-                    "f2135": 7805660590.25,         // 净资产
-                    "f2115": 38.84,
-                    ...
-                }]
-            }
-        });
-        """
-        url = "http://push2.eastmoney.com/api/qt/slist/get?spt=1&np=3&fltt=2&invt=2&fields=f9,f12,f13,f14,f20,f23,f37,f45,f49,f134,f135,f129,f1000,f2000,f3000&ut=bd1d9ddb04089700cf9c27f6f7426281" \
-            + "&cb={}&secid={}.{}&_={}".format(get_cb(), '1' if code[-1]=='1' else '0', code[:-1], get__())
-        r = self.requests_get(url, "基本信息")
-        # print (r.text)
-        text = r.text[r.text.find("(")+1:-2]
-        # print (text)
-        list_share = []
-        list_block = []
-        try:
-            data = json.loads(text)['data']['diff']
-            print (data)
-            s=data[0]
-            b=data[1]
-
-            # 提取个股基本面数据
-            s['code'] = str(s['f12']) + ('1' if s['f13'] == '1' else '2')
-            # 基本面综合评分, 满分100
-            s['score'] = int(100-3.25 * (s['f3020'] + s['f3045'] + s['f3009'] + (5-s['f3023']) + s['f3049'] + s['f3129'] + s['f3037'] + s['f3135']-8))
-            # 基本面排名和详情
-            s['value'] = "{:2d}/{}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 总市值
-            s['profit'] = "{:2d}/{}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 净利润
-            s['PE'] = "{:.2f}/{:.2f}".format(b['f2009'],s['f9']) # 版块市盈率/市盈率
-            s['PB'] = "{:.2f}/{:.2f}".format(b['f2023'],s['f23']) # 版块市净率/市净率
-            s['ROE'] = "{:.2f}/{:.2f}".format(b['f2037'],s['f37']) # 版块ROE%/ROE
-            s['blk'] = "{:3d}/{}".format(b['f134'],b['f14']) # 个股数量/所属板块
-            # print (s)
-            #       含义: 代码, 名称 , 保留给资金流分析,  评分,   总市值,    净利润, 市盈率,市净率, ROE, 所属版块
-            list_key = ['code','f14', 'res1', 'res2', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
-            for k in list_key:
-                list_share.append(s.get(k,'-'))
-            # print (list_share)
-
-            # 提取版块基本面数据
-            b['code'] = b['f12']
-            # 基本面排名和详情
-            b['market'] = readableNum(b['f20'],divisor=10000)    # 流通市值
-            b['value'] = readableNum(b['f2020'],divisor=10000)    # 平均市值
-            b['profit'] = readableNum(b['f2045'],divisor=10000)  # 平均净利润
-            b['PE'] = b['f2009'] # 市盈率
-            b['PB'] = b['f2023'] # 市净率
-            b['ROE'] = b['f2037'] # ROE%
-            b['num'] = b['f134'] # 版块个数数量
-            #       含义: 代码, 名称 , 保留给资金流分析, 流通市值, 平均市值,平均净利润, 市盈率,市净率, ROE, 个股数量
-            list_key = ['code','f14', 'res1', 'res2', 'market', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
-            for k in list_key:
-                list_block.append(b.get(k,'-'))
-            # print (list_block)
-        except Exception as e:
-            raise Exception("get_fund\r\terr:{}\r\tinfo:{}".format(e, data))
-            # self.rd["get_fund_{}".format(code)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
-            #     url, e, data)
-            # print("get_fund_{}, err:{}\r\tinfo:{}".format(code, e, data))
-            # list_share = []
-            # list_block = []
-        return (list_share, list_block)
-
-    def check_file(self, file, date):
-        last_line = b""
-        if os.path.exists(file):
-            # 读取文件最后一行
-            with open(file, 'rb+') as f:
-                # 在文本文件中，没有使用b模式选项打开的文件，只允许从文件头开始,只能seek(offset,0)
-                # if os.path.getsize(file) > 1000:  ///////////////////////////////////
-                f.seek(-1000, os.SEEK_END)  # 从文件末尾开始向前1000个字符
-                lines = f.readlines()
-                # else:
-                    # lines = f.readlines()
-                try:
-                    last_line = lines[-1]
-                    date_last = last_line.decode().split(',')[0]
-                except Exception as e:
-                    last_line = b""
-                    print(e)
-                else:
-                    # 日期相同, 则删除最后一行
-                    if date_last == date:
-                        f.seek(-len(last_line), os.SEEK_END)
-                        f.truncate()
-        return last_line
-
     def save_info(self, info, fileName, path=None):
-        if info is None:
-            raise Exception("===>FAILED! NO information")
-        if (path is None):
-            path = get_data_path()
-        fileName += ".csv"
-        # print(path)
-        # print(info)
-        df = pd.DataFrame(info).T
-        # print (df)
-        if (os.path.exists(path) is False):
-            os.makedirs(path)
-
-        self.check_file(path + fileName, info[0])
-        df.to_csv(path + fileName, mode='a', header=False,
-                  index=False, encoding='utf-8')
-        print("saved {} info: {}".format(fileName, info))
-
-        # check result
-        flag_ok = 0
-        listLine = str(self.check_file(path + fileName, None), encoding="utf-8").split(",")
-        if (len(listLine) == 28):
-            # list_info 最终格式:                                   最新价      开盘价      最高       最低        成交量(手)      成交额(万)       主力净值(万)   超大流入(元)   超大流出(元)   超大净值(万)   占比      大单流入(元)    大单流出(元)      大单净值(万)   占比       中单流入(元)    中单流出(元)     中单净值(万)    占比       小单流入(元)    小单流出(元)     小单净值(万)  占比
-            # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
-            if '-' not in listLine[12:]:
-                flag_ok = 1
-        if (flag_ok == 0):
-            raise Exception("===>FAILED! ERR information: {}".format(info))
-
-    # def save_detail(self, detail, fileName, path=None):
-    #     if detail is None:
-    #         print("fail to save_detail. fileName: {}".format(fileName))
-    #     if self.time_str is None:
-    #         raise Exception("failed! save_detail: NO time information.")
-    #     else:
-    #         ymd = self.time_str.split("-")
-    #         ymd[2] = ymd[2].split()[0]
-    #         date = self.time_str.split()[0]
-    #         # print (ymd)
-    #     if (path is None):
-    #         path = get_cur_dir() + \
-    #             "\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
-    #     fileName += ".csv"
-    #     # print(path + fileName)
-    #
-    #     # 如果不是收盘, 就需要对齐数据. 否则无法DataFrame转换
-    #     length = len(detail["main"]) - len(detail["value"])
-    #     if (length > 0):
-    #         temp_list = [''] * length
-    #         detail["value"].extend(temp_list)
-    #
-    #     df = pd.DataFrame(detail)
-    #     # print (df)
-    #     if (os.path.exists(path) is False):
-    #         os.makedirs(path)
-    #     df.to_csv(path + fileName)
-    #     print("saved {} details. Date: {}".format(fileName, date))
-
-    def save_fund(self, dict, file):
         try:
-            dict.values()[0][10] # 正确的数据长度
-            print (dict.values()[0][10]) # ///////////////////////
-            keys = dict.keys()
-            with open(file, 'r', encoding="utf-8") as csv_file:
-                reader = csv.reader(csv_file)
-                for row in reader:
-                    if row[0] not in keys:
-                        dict[row[0]] = row # //////////////
-            # 读写文件 ...............
+            if (path is None):
+                path = get_data_path()
+            fileName += ".csv"
+            # print(path)
+            # print(info)
+            df = pd.DataFrame(info).T
+            # print (df)
+            if (os.path.exists(path) is False):
+                os.makedirs(path)
+
+            read_last_line(path + fileName, info[0])
+            df.to_csv(path + fileName, mode='a', header=False,
+                      index=False, encoding='utf-8')
+            print("saved {} info: {}".format(fileName, info))
+
+            # check result
+            flag_ok = False
+            lastLine = str(read_last_line(path + fileName, None), encoding="utf-8").split(",")
+            if (len(lastLine) == 28):
+                # list_info 最终格式:                                   最新价      开盘价      最高       最低        成交量(手)      成交额(万)       主力净值(万)   超大流入(元)   超大流出(元)   超大净值(万)   占比      大单流入(元)    大单流出(元)      大单净值(万)   占比       中单流入(元)    中单流出(元)     中单净值(万)    占比       小单流入(元)    小单流出(元)     小单净值(万)  占比
+                # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
+                if '-' not in lastLine[12:]:
+                    flag_ok = True
+            if (flag_ok is False):
+                raise Exception("save_info ERROR: \r\n\tlastLine:{}\r\n\tfile:{}\r\n\terr:{}".format(lastLine, fileName, "flag_ok is False"))
         except Exception as e:
-            self.rd['save_fund'] = e
-            print(e)
+            raise Exception("save_info ERROR: \r\n\tinfo:{}\r\n\tfile:{}\r\n\terr:{}".format(info, fileName, e))
 
-    def save_shares_to_file(self, path=None):
-        if (path is None):
-            if (os.path.exists(get_para_path()) is False):
-                os.makedirs(get_para_path())
-            path = get_para_path() + "tickers_dl.csv"
-
-        shares = self.get_shares_from_web()
-        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
-            writer = csv.writer(csv_file)
-            for t in sorted(shares.items(),key=lambda item:item[0]):
-                writer.writerow(list(t) + ['-' for n in range(9)])
-        print("saved shares to file: {}".format(path))
-
-    def save_blocks_to_file(self, path=None):
-        if (path is None):
-            if (os.path.exists(get_para_path()) is False):
-                os.makedirs(get_para_path())
-            path = get_para_path() + "blocks_dl.csv"
-        blocks = self.get_blocks_from_web()
-        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
-            writer = csv.writer(csv_file)
-            for t in sorted(blocks.items(),key=lambda item:item[0]):
-                writer.writerow(list(t) + ['-' for n in range(9)])
-        print("saved blocks to file: {}".format(path))
+    def save_fund(self, fund, file):
+        try:
+            df = pd.read_csv(file, header=None, dtype=str, encoding="utf-8").set_index([0], drop=False)
+            # print (fund)
+            # print (df)
+            for key, value in fund.items():
+                df.loc[key]=value
+            df.to_csv(file, header=False, index=False)
+        except Exception as e:
+            raise Exception("save_fund ERROR: \r\n\tfund:{}\r\n\tfile:{}\r\n\terr:{}".format(fund, file, e))
 
     def save_shares_in_blocks(self, block, shares, path=None):
         if (path is None):
@@ -591,6 +553,39 @@ class collect_data(object):
                     writer.writerow(t)
         print("saved {} shares to file: {}".format(i, path))
 
+    def save_shares_to_file(self, path=None):
+        if (path is None):
+            if (os.path.exists(get_para_path()) is False):
+                os.makedirs(get_para_path())
+            path = get_para_path() + "tickers_dl.csv"
+
+        shares = self.get_shares_from_web()
+        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            for t in sorted(shares.items(),key=lambda item:item[0]):
+                writer.writerow(list(t) + ['-' for n in range(10)])
+        print("===> save_shares_to_file SUCCESS: {} <===".format(path))
+
+    def save_blocks_to_file(self, path=None):
+        index = {
+            "0000011":"上证指数",
+            "3990012":"深圳指数",
+            "3990052":"中小板",
+            "3990062":"创业板",
+        }
+        if (path is None):
+            if (os.path.exists(get_para_path()) is False):
+                os.makedirs(get_para_path())
+            path = get_para_path() + "blocks_dl.csv"
+        blocks = self.get_blocks_from_web()
+        with open(path, 'w', encoding="utf-8", newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            for t in sorted(index.items(),key=lambda item:item[0]):
+                writer.writerow(list(t) + ['-' for n in range(10)])
+            for t in sorted(blocks.items(),key=lambda item:item[0]):
+                writer.writerow(list(t) + ['-' for n in range(10)])
+        print("===> save_blocks_to_file SUCCESS: {} <===".format(path))
+
     def get_blocks_from_file(self, file=None):
         blocks_code = []
         if (file is None):
@@ -600,7 +595,7 @@ class collect_data(object):
                 reader = csv.reader(csv_file)
                 blocks_code = [row[0] for row in reader]
         except Exception as e:
-            self.rd['blocks_csv_err'] = e
+            self.rd['get_blocks_from_file'] = e
             print(e)
         return blocks_code
 
@@ -613,116 +608,91 @@ class collect_data(object):
                 reader = csv.reader(csv_file)
                 tickers_code = [row[0] for row in reader]
         except Exception as e:
-            self.rd['tickers_csv_err'] = e
+            self.rd['get_shares_from_file'] = e
             print(e)
         return tickers_code
 
-    def get_all_blocks(self, blocks=None):
-        # //////////////////////// 合并为get_all_capital, 并且和get_all_funds一样有自动修复机制, 去掉或修改 collect_autofix 文件.
-        # blocks = ['BK04561', 'BK04771'] # 列表格式
-        if blocks is None:
-            blocks = self.get_blocks_from_file()
-            if (len(blocks) == 0):
-                self.rd['no_blocks'] = "NO blocks found"
-                print("===> get_all_blocks NO blocks found! <===")
+    def get_all_infos(self, codes=None):
+        # codes = ['BK04561', 'BK04771', '6012161', '3000012'] # 列表格式
+        print("===> get_all_infos START <===")
+        if codes is None:
+            codes = []
+            codes.extend(self.get_blocks_from_file())
+            codes.extend(self.get_shares_from_file())
+            if (len(codes) == 0):
+                self.rd['get_all_infos'] = "NO codes found"
+                print("===> get_all_infos END: NO codes found! <===")
                 return
 
-        # 板块信息
-        print("===> get_all_blocks START <===")
-        total = len(blocks)
-        idx = 0
+        for j in range(3): # retry 3 times
+            retry = []
+            total = len(codes)
+            for i, code in enumerate(codes,1):
+                try:
+                    print("===> {}/{}\tget_all_infos({})_{}".format(i, total, code, j))
+                    l = self.get_code_info(code)
+                    # print(l)
+                    self.save_info(l, code)
+                except Exception as e:
+                    retry.append(code)
+                    self.rd["get_all_infos({})_{}".format(code, j)] = e
+                    print("get_all_infos({})_{}:\t{}".format(code, j, e))
+            codes = retry
 
-        for code in blocks:
-            try:
-                idx += 1
-                print("===> {}/{}\tin get_all_blocks".format(idx, total))
-                l = self.get_code_info(code)
-                # print(l)
-                self.save_info(l, code)
-                # d = self.get_day_detail(code)
-                # # print(d)
-                # self.save_detail(d, code)
-            except Exception as e:
-                self.rd["block_{}".format(code)] = e
-                print("code:{}, err:{}".format(code, e))
-        self.rd['_____get_all_blocks'] = self.time_str
-        print("===> get_all_blocks END <===")
+        self.rd["get_all_infos_missed"] = codes
+        print("get_all_infos_missed: {}".format(codes))
 
-    def get_all_shares(self, tickers=None):
+        # /////////////////////// 计算股价, 资金流, 波动系数
+        self.rd["===> get_all_infos"] = self.time_str
+        print("===> get_all_infos END <===")
+
+    def get_all_funds(self, tickers=None):
         # tickers = ['6012161', '3000012', ] # 列表格式, 前6为为代码, 最后一位1表示上海, 2表示深圳
+        print("===> get_all_funds START <===")
         if tickers is None:
             tickers = self.get_shares_from_file()
             if (len(tickers) == 0):
-                self.rd['no_tickers'] = "NO tickers found"
-                print("===> get_all_shares NO tickers found! <===")
+                self.rd['get_all_funds'] = "NO tickers found"
+                print("===> get_all_funds END: NO tickers found! <===")
                 return
 
-        print("===> get_all_shares START <===")
-        total = len(tickers)
-        idx = 0
+        self.fund_ticker = {}
+        self.fund_block = {}
+        for j in range(3): # retry 3 times
+            retry = []
+            total = len(tickers)
+            for i, ticker in enumerate(tickers,1):
+                try:
+                    # print("===> {}/{}\tget_all_funds({})_{}".format(i, total, ticker, j))  //////////////////////
+                    l = self.get_code_fund(ticker)
+                    # print(l)
+                    self.fund_ticker[ticker] = l[0]
+                    self.fund_block[l[1][0]] = l[1]
+                except Exception as e:
+                    retry.append(ticker)
+                    self.rd["get_all_funds({})_{}".format(ticker, j)] = e
+                    print("get_all_funds({})_{}:\t{}".format(ticker, j, e))
+            tickers = retry
 
-        for code in tickers:
-            try:
-                idx += 1
-                print("===> {}/{}\tin get_all_shares".format(idx, total))
-                l = self.get_code_info(code)
-                # print(l)
-                self.save_info(l, code)
-                # d = self.get_day_detail(code)
-                # # print(d)
-                # self.save_detail(d, code)
-            except Exception as e:
-                self.rd["share_{}".format(code)] = e
-                print("code:{}, err:{}".format(code, e))
-        self.rd['_____get_all_shares'] = self.time_str
-        print("===> get_all_shares END <===")
-
-    def get_all_funds(self, tickers=None, retry=-1):
-        # 读取所有板块和个股的基本面信息, 最后一下子存储到文件中, 所以要失败自调用
-        # tickers = ['6012161', '3000012', ] # 列表格式, 前6为为代码, 最后一位1表示上海, 2表示深圳
-
-        if retry < 0:
-            print("===> get_all_funds START <===")
-            retry = 3
-            self.fund_ticker = {}
-            self.fund_block = {}
-            if tickers is None:
-                tickers = self.get_shares_from_file()
-        else:
-            print("===> get_all_shares RETRY <===")
-
-        total = len(tickers)
-        idx = 0
-        retry_code = []
-
-        for code in tickers:
-            try:
-                idx += 1
-                print("===> {}/{}\tin get_all_funds".format(idx, total))
-                l = self.get_fund(code)
-                self.fund_ticker[code] = l[0]
-                self.fund_block[l[1][0]] = l[1]
-            except Exception as e:
-                retry_code.append(code)
-                self.rd['fund_{}'.format(code)] = e
-                print("code:{}, err:{}".format(code, e))
-
-        if (len(retry_code) and retry):
-            self.get_all_funds(tickers=retry_code, retry=retry-1)
-        else:
+        try:
+            print("save_fund")
             # print (self.fund_ticker)
             # print (self.fund_block)
-            self.save_fund(self.fund_ticker, get_para_path+"tickers.csv")
-            self.save_fund(self.fund_block, get_para_path+"blocks.csv")
-            if retry <= 0:
-                self.rd['_____get_all_funds'] = "END. Fail to get {}".format(retry_code)
-                print("===> get_all_funds END. Fail to get {} <===".format(retry_code))
-            else:
-                self.rd['_____get_all_funds'] = "SUCCESS"
-                print("===> get_all_funds END <===")
+            if (len(self.fund_ticker)):
+                self.save_fund(self.fund_ticker, get_para_path()+"tickers.csv")
+            if (len(self.fund_block)):
+                self.save_fund(self.fund_block, get_para_path()+"blocks.csv")
+        except Exception as e:
+            self.rd["get_all_funds_save"] = e
+            print("get_all_funds_save:\t{}".format(e))
 
-    def update_check(self):
-        print("===> update_check, START! <===")
+        self.rd["get_all_funds_missed"] = tickers
+        print("get_all_funds_missed: {}".format(tickers))
+        self.rd["===> get_all_funds"] = self.time_str
+        print("===> get_all_funds END <===")
+
+    def update_check(self, manual=False):
+        print("===> update_check START <===")
         result = False
         now = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime(
             '%a %Y-%m-%d %H:%M:%S')
@@ -731,33 +701,35 @@ class collect_data(object):
         week = now.split()[0]
         hour = now.split()[2].split(':')[0]
         if (week == 'Sat' or week == 'Sun' or hour < '07' or hour >= '16'):
-            t = self.get_code_info("0000011")
-            print("股票更新日期:    {} {}".format(t[0], t[1]))
-            self.rd['data_start'] = self.time_str
-            hour = t[1].split(':')[0]
-            min = t[1].split(':')[1]
-            if (hour == '15' and min > '05'):
-                try:
-                    d = {}
-                    with open(get_report_file(), 'r') as f:
-                        lines = f.readlines()
-                        for line in lines:
-                            if "data_end" in line:
-                                kv = line.replace('\t', '').strip().split(',')
-                                d[kv[0]] = kv[1]
-                    # print (d)
-                    if d['data_end'][:13] == self.time_str[:13]:
-                        print("===> 已是最新数据, 无需更新! <===")
-                        print("===> update_check, DENY! <===")
-                        return result
-                except Exception as e:
-                    print("Read report file failed. {}".format(e))
-
+            if manual:
                 result = True
-                print("===> update_check, PASS! <===")
+            else:
+                t = self.get_code_info("0000011")
+                print("股票更新日期:    {} {}".format(t[0], t[1]))
+                self.rd['data_start'] = self.time_str
+                hour = t[1].split(':')[0]
+                min = t[1].split(':')[1]
+                if (hour == '15' and min > '05'):
+                    try:
+                        d = {}
+                        with open(get_report_file(), 'r') as f:
+                            lines = f.readlines()
+                            for line in lines:
+                                if "data_end" in line:
+                                    kv = line.replace('\t', '').strip().split(',')
+                                    d[kv[0]] = kv[1]
+                        # print (d)
+                        if d['data_end'][:13] == self.time_str[:13]:
+                            print("===> 已是最新数据, 无需更新! <===")
+                            print("===> update_check, DENY! <===")
+                            return result
+                    except Exception as e:
+                        print("Read report file failed. {}".format(e))
+            result = True
+            print("===> update_check PASS <===")
         if (result is False):
             print("股票数据变动中, 为数据完整, 请在收盘后更新数据!")
-            print("===> update_check, DENY! <===")
+            print("===> update_check DENY <===")
         return result
 
     def update_finished(self):
@@ -781,16 +753,21 @@ class collect_data(object):
             print("已完成! 更新数据成功.")
             print("===> update_finished, END! <===")
 
+    def get_missed_codes(self):
+        codes_dict = {"missed_info":self.rd.get("get_all_infos_missed",[]), "missed_fund":self.rd.get("get_all_funds_missed",[])}
+        return codes_dict
 
 def collect_data_test(cd):
-    if (cd.update_check()):
-        # cd.get_all_blocks()
-        # cd.get_all_shares()
-        cd.update_finished()
-    # blocks = ['BK04561', 'BK04771']
-    # cd.get_all_blocks(blocks)
-    # tickers = ['0003332','6000171']
-    # cd.get_all_shares(tickers)
+    cd.get_all_infos([])
+    cd.get_all_funds([])
+
+    # if (cd.update_check()):
+    #     cd.get_all_infos()
+    #     cd.get_all_funds()
+    #     cd.update_finished()
+
+    # codes = ['BK04561', 'BK04771', '0003332','6000171']
+    # cd.get_all_infos(codes)
 
 
 if __name__ == '__main__':
@@ -799,7 +776,9 @@ if __name__ == '__main__':
 
     if len(sys.argv) == 2:
         print("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
-        if sys.argv[1] == "shares_dl_csv":
+        if sys.argv[1] == "get_all_funds":
+            cd.get_all_funds()
+        elif sys.argv[1] == "shares_dl_csv":
             cd.save_shares_to_file()
         elif sys.argv[1] == "blocks_dl_csv":
             cd.save_blocks_to_file()
@@ -807,19 +786,18 @@ if __name__ == '__main__':
             cd.get_shares_in_blocks()
     elif len(sys.argv) == 3:
         try:
-            print("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
-            blocks = literal_eval(sys.argv[1])
-            tickers = literal_eval(sys.argv[2])
-            print("blocks:{}\r\ntickers:{}\r\n".format(blocks, tickers))
-            if (len(blocks)):
-                cd.get_all_blocks(blocks)
-            if (len(tickers)):
-                cd.get_all_shares(tickers)
-            print("===> 手动修复完成! <===\r\n")
+            infos = literal_eval(sys.argv[1])
+            funds = literal_eval(sys.argv[2])
+            print("\r\n===> 尝试修复 <===\r\n")
+            if cd.update_check(manual=True):
+                print("get_all_infos:{}\r\nget_all_funds:{}\r\n".format(infos, funds))
+                if (len(infos)):
+                    cd.get_all_infos(infos)
+                if (len(funds)):
+                    cd.get_all_funds(funds)
+            print("===> 修复完成! <===\r\n")
         except Exception as e:
             print(e)
     else:
         # test purpose
-        # collect_data_test(cd)
-        # cd.get_all_funds(tickers=['6012161', '3000012'])
-        cd.save_blocks_to_file()
+        collect_data_test(cd)

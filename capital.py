@@ -2,6 +2,9 @@ import gui_main
 import gui_sub
 import subprocess
 import webbrowser
+import numpy as np
+import pandas as pd
+from ast import literal_eval
 from gui_misc import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -19,8 +22,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.file = ".\\_data\\_info\\{}.csv".format(self.code)
 
         # 工具按钮
-        self.collectDate = QAction('Run collect_data', self)
-        self.autoFix = QAction('Run collect_autofix', self)
+        self.collectFunds = QAction('Run get_all_funds', self)
+        self.autoFix = QAction('Fix based report.txt', self)
+        self.collectSilence = QAction('Run collect_silence', self)
         self.openFile = QAction('Open _para folder', self)
         self.setParameter = QAction('Open parameter.ini', self)
         self.tickersCsv = QAction('Get tickers_dl.csv', self)
@@ -28,7 +32,8 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.blocksFolder = QAction('Get tickers in blocks', self)
 
         menu = QMenu(self)
-        menu.addAction(self.collectDate)
+        menu.addAction(self.collectFunds)
+        menu.addAction(self.collectSilence)
         menu.addAction(self.autoFix)
         menu.addSeparator()
         menu.addAction(self.openFile)
@@ -39,7 +44,8 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         menu.addAction(self.blocksFolder)
         self.toolButton.setMenu(menu)
 
-        self.collectDate.triggered.connect(self.tools)
+        self.collectFunds.triggered.connect(self.tools)
+        self.collectSilence.triggered.connect(self.tools)
         self.autoFix.triggered.connect(self.tools)
         self.openFile.triggered.connect(self.tools)
         self.setParameter.triggered.connect(self.tools)
@@ -95,16 +101,16 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '20日', '流通市值', '平均市值', '净利润', 'PE', 'PB', 'ROE', '个股'],
-                                 dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('20日', 'f'), ('流通市值', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
-                                 encoding="utf-8", na_values='-')
+        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('流通市值', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
+        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '资金异动', '资金强度', '股价波动', '流通市值', '平均市值', '净利润', 'PE', 'PB', 'ROE', '个股'],
+                                 dtype=str, encoding="utf-8", na_values='-')
         # print (self.blocks)
-        list_key = ['code', 'f14', 'res1', 'res2', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
-        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '20日', '基本面', '总市值', '净利润', 'PE', 'PB', 'ROE', '板块'],
-                                   dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('20日', 'f'), ('基本面', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
-                                   encoding="utf-8", na_values='-')
+        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('基本面', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
+        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '资金异动', '资金强度', '股价波动', '基本面', '总市值', '净利润', 'PE', 'PB', 'ROE', '板块'],
+                                   dtype=str, encoding="utf-8", na_values='-')
         # print (self.tickers)
         # //////////////////////////////// 文件格式改了!!! 重新弄一下.
+        # ///////////////////////// 调整一下界面, 颜色, 以及表格宽度
 
         # 点击操作
         self.buttonSwitch.clicked.connect(self.switchClicked)
@@ -118,7 +124,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # 初始化GUI
         self.isTableBlocks = True
         self.set_table()
-        drawChart(self.graphicsView,self.file,name='0000011',kNumber=self.kNumber)
+        drawChart(self.graphicsView,self.file,name='上证指数',kNumber=self.kNumber)
 
     # ======= 操作复用函数 =======
     def set_table(self):
@@ -166,12 +172,27 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     # ======= operation =======
     def tools(self):
-        if self.sender() == self.collectDate:
+        if self.sender() == self.collectFunds:
+            subprocess.call('python collect_data.py "get_all_funds"',shell=False)
+        elif self.sender() == self.collectSilence:
             # os.system(get_cur_dir()+"\\collect_silence.bat")
             # subprocess.call('start /wait collect_silence.bat', shell=True)
             subprocess.call('python collect_silence.py', shell=False)
         elif self.sender() == self.autoFix:
-            subprocess.call('python collect_autofix.py', shell=False)
+            # 从记录文件提取下载失败的代码信息
+            file = get_report_file()
+            missed = {}
+            with open(file, 'r') as f:
+                for line in f.readlines():
+                    if line.startswith("get_all_infos_missed,"):
+                        l = literal_eval("["+line.split("[")[1])
+                        # print (type(l),l)
+                        missed['infos'] = l
+                    if line.startswith("get_all_funds_missed,"):
+                        l = literal_eval("["+line.split("[")[1])
+                        # print (type(l),l)
+                        missed['funds'] = l
+            subprocess.call('python collect_data.py {} {}'.format(missed.get('infos', []), missed.get('funds', [])), shell=False)
         elif self.sender() == self.openFile:
             os.startfile('.\\_para\\')
         elif self.sender() == self.setParameter:

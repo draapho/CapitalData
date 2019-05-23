@@ -2,16 +2,17 @@
 
 # Form implementation generated from reading ui file 'gui_main.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(800, 500)
+        MainWindow.resize(1000, 500)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap("simplistica/png/64x64/user.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
@@ -54,6 +55,7 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.widget_2.sizePolicy().hasHeightForWidth())
         self.widget_2.setSizePolicy(sizePolicy)
+        self.widget_2.setMinimumSize(QtCore.QSize(400, 0))
         self.widget_2.setObjectName("widget_2")
         self.gridLayout = QtWidgets.QGridLayout(self.widget_2)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
@@ -109,8 +111,9 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.toolButton.sizePolicy().hasHeightForWidth())
         self.toolButton.setSizePolicy(sizePolicy)
-        self.toolButton.setMinimumSize(QtCore.QSize(40, 23))
-        self.toolButton.setMaximumSize(QtCore.QSize(50, 16777215))
+        self.toolButton.setMinimumSize(QtCore.QSize(0, 23))
+        self.toolButton.setMaximumSize(QtCore.QSize(13, 16777215))
+        self.toolButton.setText("")
         self.toolButton.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
         self.toolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextOnly)
         self.toolButton.setAutoRaise(True)
@@ -142,7 +145,6 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "CapitalData"))
         self.buttonMore.setText(_translate("MainWindow", ">"))
         self.buttonSwitch.setText(_translate("MainWindow", "个股/板块"))
-        self.toolButton.setText(_translate("MainWindow", "工具"))
         self.actionCollect.setText(_translate("MainWindow", "Run collect_data"))
         self.actionSharesCsv.setText(_translate("MainWindow", "Get tickers_dl.csv"))
         self.actionBlocksCsv.setText(_translate("MainWindow", "Get blocks_dl.csv"))
@@ -151,7 +153,9 @@ class Ui_MainWindow(object):
         self.actionBlocksFolders.setText(_translate("MainWindow", "Get Blocks folder"))
         self.actionParameter.setText(_translate("MainWindow", "Open parameter.ini"))
 
+
 from pyqtgraph import GraphicsLayoutWidget
+
 
 if __name__ == "__main__":
     import sys
@@ -161,4 +165,3 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
-

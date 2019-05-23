@@ -91,6 +91,34 @@ def loadData(file_path, skip_n_end, rows_n, **kwargs):
     )
     return data
 
+"""
+获取文件的最后一行.
+如果最后一行的日期和输入的date相同, 则删除.
+"""
+def read_last_line(file, date, size=1024):
+    last_line = b""
+    if os.path.exists(file):
+        # 读取文件最后一行
+        with open(file, 'rb+') as f:
+            # 在文本文件中，没有使用b模式选项打开的文件，只允许从文件头开始,只能seek(offset,0)
+            if os.path.getsize(file) > size:
+                f.seek(-size, os.SEEK_END)  # 从文件末尾开始向前1000个字符
+                lines = f.readlines()
+            else:
+                lines = f.readlines()
+            try:
+                last_line = lines[-1]
+                date_last = last_line.decode().split(',')[0]
+            except Exception as e:
+                last_line = b""
+                print(e)
+            else:
+                # 日期相同, 则删除最后一行
+                if date_last == date:
+                    f.seek(-len(last_line), os.SEEK_END)
+                    f.truncate()
+    return last_line
+
 
 ########### url para ##########
 def get_cb():

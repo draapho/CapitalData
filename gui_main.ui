@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
+    <width>1000</width>
     <height>500</height>
    </rect>
   </property>
@@ -83,6 +83,12 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>400</width>
+         <height>0</height>
+        </size>
        </property>
        <layout class="QGridLayout" name="gridLayout">
         <property name="leftMargin">
@@ -206,18 +212,18 @@
           </property>
           <property name="minimumSize">
            <size>
-            <width>40</width>
+            <width>0</width>
             <height>23</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
-            <width>50</width>
+            <width>13</width>
             <height>16777215</height>
            </size>
           </property>
           <property name="text">
-           <string>工具</string>
+           <string/>
           </property>
           <property name="popupMode">
            <enum>QToolButton::MenuButtonPopup</enum>
