@@ -123,10 +123,10 @@ class PandasModel(QAbstractTableModel):
         self.index = list(self._data.index.values)
         self.layoutChanged.emit()
 
-    def tableRow(self, row):
+    def getIndex(self):
         # print(row, self.index)
         # print(self.index[row])
-        return self.index[row]
+        return self.index
 
 
 class KItem(pg.GraphicsObject):

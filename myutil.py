@@ -6,7 +6,6 @@ import sys
 import re
 import csv
 import random
-import locale
 import pandas as pd
 
 ########### file / path ##########
@@ -36,7 +35,8 @@ def get_parameter_name():
 def get_parameter_file():
     return get_para_path() + get_parameter_name()
 
-comment_pattern = re.compile(r'\s*#.*$')
+def get_tmp_file():
+    return get_para_path() + "tmp"
 
 
 """
@@ -137,11 +137,6 @@ Convert a number for human consumption
 
 Divisor can be 1, 1000, 1024
 
-If the locale has been set before this
-function is called, then numbers appropriate to the
-locale will be retured. This is commonly done like:
-    locale.setlocale(locale.LC_ALL,'')
-
 A divisor of 1 => the thousands seperator
 appropriate to ones locale is inserted.
 
@@ -150,25 +145,22 @@ in a 7 or 8 character column respectively,
 which one can strip() if the display is not
 using a fixed width font.
 """
-def readableNum(num, divisor=1000, power=""):
+def readableNum(num, divisor=1000, power="", sort=False):
     num=float(num)
-    if divisor == 1000:
-        powers=[" ","K","M","G","T","P"]
-    elif divisor == 1024:
+    if divisor == 1024:
         powers=["  ","Ki","Mi","Gi","Ti","Pi"]
     elif divisor == 10000:
         powers=[" ","万","亿","万亿","亿亿"]
     else:
-        return locale.format("%.f",num,1)
+        powers=[" ","K","M","G","T","P"]
     if not power: power=powers[0]
-    while num >= 1000: #4 digits
+    while num >= 1000 or num <=-1000: #4 digits
         num /= divisor
         power=powers[powers.index(power)+1]
-    if power.strip():
-        num = locale.format("%.2f",num,1)
+    if sort:
+        return "{}{:5.1f}".format(power,num)
     else:
-        num = locale.format("%.2f  ",num,1)
-    return "%s%s" % (num,power)
+        return "{:.1f}{}".format(num,power)
 
 
 if __name__ == '__main__':

@@ -68,35 +68,40 @@ def send_mail(missed):
     finally:
         smtp.quit()
 
-# def alarm_clock():
-#     scheduler = BlockingScheduler()
-#     print("alarm clock: 周一到周五 北京时间 16:00")
-#     scheduler.add_job(, 'cron', day_of_week='mon-fri',
-#                       hour=16, minute=1, timezone='Asia/Shanghai')
-#     scheduler.start()
-
 def collect_silence(repeat=None):
-    print("===> {}\tcollect_silence START <===".format(datetime.datetime.now()))
+    finished = False
+    tz = pytz.timezone('Asia/Shanghai')
+    now = datetime.datetime.now(tz)
+    week = now.strftime('%a')
+    print("===> collect_silence START:{} <===".format(now))
     try:
-        now = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S %a')
-        week = now.split()[2]
-        hour = now.split()[1].split(':')[0]
-        # print (week, hour)
         cd = collect_data.collect_data()
-        if (cd.update_check()):
+        check = cd.update_check()
+        if (check == "PASS"):
             cd.get_all_infos()
-            if ((week == 'Fri' and hour >= '16') or week == 'Sat' or week == 'Sun'):
+            if ((week == 'Fri' and now.hour >= 15) or week == 'Sat' or week == 'Sun'):
                 cd.get_all_funds()
             cd.update_finished()
             send_mail(cd.get_missed_codes())
+            finished = True
     except Exception as e:
         print(e)
-    print("===> {}\tcollect_silence END <===".format(datetime.datetime.now()))
+    print("===> collect_silence END:{} <===".format(datetime.datetime.now(tz)))
+
     if (repeat=="repeat"):
         scheduler = BlockingScheduler()
-        next_run_time = datetime.datetime.now()+datetime.timedelta(hours=1)
-        scheduler.add_job(func=collect_silence, args=('repeat',), next_run_time=next_run_time)
-        print("collect_silence 将于一小时后再次运行.")
+        if finished or (check == "UPDATED"):    # 更新成功
+            if (now.hour >= 15):
+                tomorrow = now+datetime.timedelta(days=1)
+                next_run_time = tomorrow.replace(hour=16, minute=1, second=1)
+            else:
+                next_run_time = now.replace(hour=16, minute=1, second=1)
+        elif (check == "DENY"):     # 股票数据变动中, 当天重试
+            next_run_time = now.replace(hour=16, minute=1, second=1)
+        else:                       # 更新失败, 1小时后重试.
+            next_run_time = now+datetime.timedelta(hours=1)
+        scheduler.add_job(func=collect_silence, args=('repeat',), next_run_time=next_run_time, timezone='Asia/Shanghai')
+        print("collect_silence 将再次运行于: {}".format(next_run_time))
         scheduler.start()
 
 

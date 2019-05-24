@@ -101,16 +101,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.lineEditSticker.editingFinished.connect(self.editFinished)
 
         # table 初始数据
-        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('流通市值', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
-        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '资金异动', '资金强度', '股价波动', '流通市值', '平均市值', '净利润', 'PE', 'PB', 'ROE', '个股'],
+        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('排序', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
+        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', '市值', '利润', 'PE', 'PB', 'ROE', '个股'],
                                  dtype=str, encoding="utf-8", na_values='-')
         # print (self.blocks)
-        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('基本面', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
-        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '资金异动', '资金强度', '股价波动', '基本面', '总市值', '净利润', 'PE', 'PB', 'ROE', '板块'],
+        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('评分', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
+        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
                                    dtype=str, encoding="utf-8", na_values='-')
         # print (self.tickers)
-        # //////////////////////////////// 文件格式改了!!! 重新弄一下.
-        # ///////////////////////// 调整一下界面, 颜色, 以及表格宽度
 
         # 点击操作
         self.buttonSwitch.clicked.connect(self.switchClicked)
@@ -133,8 +131,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         else:
             self.model = PandasModel(self.tickers)
         self.tableView.setModel(self.model)
+        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
-    def codeChoosed(self):
+    def codeChoosed(self, lineEdit=False):
         text = self.lineEditSticker.text()
         if (text in list(self.tickers['name'])):
             name = text
@@ -153,12 +152,20 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             name = self.blocks[self.blocks['code'].isin([text])]
             name = name.iloc[0][1]
         if (self.code !=  os.path.splitext(os.path.basename(self.file))[0]):
-            if (self.code in list(self.blocks['code'])):
+            if (self.code in list(self.blocks['code']) and '-' not in self.code):
                 self.file = "{}\\{}.csv".format(os.path.dirname(self.file), self.code)
                 drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
+                if (lineEdit and self.isTableBlocks):
+                    crow = list(self.blocks.code).index(self.code)
+                    trow = self.model.getIndex().index(crow)
+                    self.tableView.selectRow(trow)
             elif (self.code in list(self.tickers['code'])):
                 self.file = "{}\\{}.csv".format(os.path.dirname(self.file), self.code)
                 drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
+                if (lineEdit and not self.isTableBlocks):
+                    crow = list(self.tickers.code).index(self.code)
+                    trow = self.model.getIndex().index(crow)
+                    self.tableView.selectRow(trow)
 
     def read_parameter_ini(self):
         try:
@@ -206,11 +213,11 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             subprocess.call('python collect_data.py "blocks_folder"', shell=False)
 
     def completerActivated(self):
-        self.codeChoosed()
+        self.codeChoosed(lineEdit=True)
 
     def editFinished(self):
         if (self.lineEditSticker.hasFocus()):   # 解决触发两次的问题
-            self.codeChoosed()
+            self.codeChoosed(lineEdit=True)
 
     def switchClicked(self):
         self.isTableBlocks = not self.isTableBlocks
@@ -233,12 +240,12 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                     if (self.isTableBlocks):
                         if (row >= len(self.blocks)):
                             row -= 1
-                        brow = self.model.tableRow(row)
+                        brow = self.model.getIndex()[row]
                         text = self.blocks.values[brow][column]
                     else:
                         if (row >= len(self.tickers)):
                             row -= 1
-                        text = self.tickers.values[self.model.tableRow(row)][column]
+                        text = self.tickers.values[self.model.getIndex()[row]][column]
                     self.lineEditSticker.setText(text)
                     self.codeChoosed()
         return False
@@ -249,18 +256,17 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (column > 1):
             column = 1
         # print (row, column)
+        brow = self.model.getIndex()[row]
         if (self.isTableBlocks):
-            brow = self.model.tableRow(row)
             text = self.blocks.values[brow][column]
         else:
-            brow = self.model.tableRow(row)
             text = self.tickers.values[brow][column]
         self.lineEditSticker.setText(text)
         self.codeChoosed()
 
     def tableDoubleClicked(self, mi):
+        brow = self.model.getIndex()[mi.row()]
         if (self.isTableBlocks):
-            brow = self.model.tableRow(mi.row())
             block = self.blocks.values[brow]
             if block[0].startswith("BK"):
                 dialog = GuiSub(block, self.kNumber, parent=self)
@@ -269,7 +275,6 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                 url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
                 webbrowser.open(url)
         else: # 打开个股基本面/信息网页
-            brow = self.model.tableRow(mi.row())
             code = self.tickers.values[brow][0]
             openBrowser(code)
 
@@ -298,8 +303,14 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.sfile = ".\\_data\\_info\\{}.csv".format(self.block_code)
 
         # 读取列表
-        self.stickers = pd.read_csv(".\\_para\\blocks\\{}.csv".format(self.block_code), header=None, names=['code', 'name'], dtype=np.dtype([('code', 'S'), ('name', 'S')]), encoding="utf-8")
-        ## /////////////////////////////// 读取code就行了. pd从主文件读取, 然后删掉不要的.
+        with open(".\\_para\\blocks\\{}.csv".format(self.block_code), 'r', encoding="utf-8") as csv_file:
+            reader = csv.reader(csv_file)
+            codes = [row[0] for row in reader]
+        tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
+                                   dtype=str, encoding="utf-8", na_values='-').set_index(['code'])
+        self.stickers = (tickers.loc[codes]).reset_index()
+        # print(self.stickers)
+
         # 点击操作
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tableView.pressed.connect(self.sTableClicked)
@@ -311,6 +322,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.setWindowTitle("{} {}".format(self.block_code,self.block_name))
         self.model = PandasModel(self.stickers)
         self.tableView.setModel(self.model)
+        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         drawChart(self.graphicsView,self.sfile,name=self.block_name,kNumber=self.spara)
 
     def eventFilter(self, obj, event):
@@ -327,7 +339,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
                         row=0
                     elif (row >= len(self.stickers)):
                         row -= 1
-                    srow = self.model.tableRow(row)
+                    srow = self.model.getIndex()[row]
                     code = self.stickers.values[srow][0]
                     name = self.stickers.values[srow][1]
                     if (code != os.path.splitext(os.path.basename(self.sfile))[0]):
@@ -339,7 +351,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         # row = mi.row()
         # column = mi.column()
         # print (row, column)
-        srow = self.model.tableRow(mi.row())
+        srow = self.model.getIndex()[mi.row()]
         code = self.stickers.values[srow][0]
         name = self.stickers.values[srow][1]
         if (code !=  os.path.splitext(os.path.basename(self.sfile))[0]):
@@ -348,7 +360,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
     def sTableDoubleClicked(self, mi):
         # 打开个股基本面/信息网页
-        srow = self.model.tableRow(mi.row())
+        srow = self.model.getIndex()[mi.row()]
         code = self.stickers.values[srow][0]
         openBrowser(code)
 

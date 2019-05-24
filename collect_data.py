@@ -6,6 +6,9 @@ import datetime
 import time
 import pytz
 import json
+import codecs
+import os
+import fileinput
 import numpy as np
 import pandas as pd
 from myutil import *
@@ -16,8 +19,9 @@ class collect_data(object):
     def __init__(self):
         self.time_str = None
         self.rd = {}
+        self.tz = pytz.timezone('Asia/Shanghai')
         self.check_s = ['f3020', 'f3045', 'f3009', 'f3023', 'f3049', 'f3129', 'f3037', 'f3135', 'f1020', 'f20', 'f1045', 'f45', 'f9', 'f23', 'f37']
-        self.check_b = ['f2009', 'f2023', 'f2037', 'f134', 'f20', 'f2020', 'f2045', ]
+        self.check_b = ['f2009', 'f2023', 'f2037', 'f134', 'f2020', 'f2045', ]
 
     """
     def get_day_detail(self, id):
@@ -137,7 +141,7 @@ class collect_data(object):
     def requests_get(self, url, comment=""):
         for i in range(3):
             try:
-                # print("{} {}".format(comment, url))  /////////////////////////////////////////
+                print("{} {}".format(comment, url))
                 r = requests.get(url, timeout=20)
                 # print (r.text)
                 break
@@ -145,7 +149,7 @@ class collect_data(object):
                 t = time.strftime("%H%M%S", time.localtime())
                 self.rd["url_err_{}".format(t)] = url
                 # 10s后重试连接
-                # print("10s后重试. 错误:{}".format(e)) /////////////////////////////////
+                print("10s后重试. 错误:{}".format(e))
                 time.sleep(10)
                 r = None
         if r is None:
@@ -319,21 +323,28 @@ class collect_data(object):
                     float(b[i])
                 except ValueError:
                     b[i] = 0
+            if s['f9']<0 or s['f9']>999.9:
+                s['f9'] = 999.9
+            if s['f23']<0 or s['f23']>99.9:
+                s['f23'] = 99.9
+            if s['f37']<0:
+                s['f37'] = 0
 
             # 提取个股基本面数据
             s['code'] = str(s['f12']) + ('1' if s['f13'] == '1' else '2')
             # 基本面综合评分, 满分100
-            s['score'] = int(100-3.25 * (s['f3020'] + s['f3045'] + s['f3009'] + (5-s['f3023']) + s['f3049'] + s['f3129'] + s['f3037'] + s['f3135']-8))
+            s['score'] = "{:2d}".format(99-3 * (s['f3020'] + s['f3045'] + s['f3009'] + (5-s['f3023']) + s['f3049'] + s['f3129'] + s['f3037'] + s['f3135']-8))
             # 基本面排名和详情
-            s['value'] = "{:2d}/{}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 总市值
-            s['profit'] = "{:2d}/{}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 净利润
-            s['PE'] = "{:.2f}/{:.2f}".format(b['f2009'],s['f9']) # 版块市盈率/市盈率
-            s['PB'] = "{:.2f}/{:.2f}".format(b['f2023'],s['f23']) # 版块市净率/市净率
-            s['ROE'] = "{:.2f}/{:.2f}".format(b['f2037'],s['f37']) # 版块ROE%/ROE
-            s['blk'] = "{:3d}/{}".format(b['f134'],b['f14']) # 个股数量/所属板块
+            s['value'] = "{:3d} / {}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 排名/总市值
+            s['profit'] = "{:3d} / {}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 排名/净利润
+            s['PE'] = "{:5.1f} / {:.1f}".format(s['f9'],b['f2009']) # 市盈率/版块市盈率/
+            s['PB'] = "{:4.1f} / {:.1f}".format(s['f23'],b['f2023']) # 市净率/版块市净率
+            s['ROE'] = "{:4.1f} / {:.1f}".format(s['f37'],b['f2037']) # ROE/版块ROE%
+            s['blk'] = "{:3d} / {} ".format(b['f134'],b['f14']) # 个股数量/所属板块
             # print (s)
             #       含义: 代码, 名称 , 保留给资金流分析,         评分,   总市值,    净利润, 市盈率,市净率, ROE, 所属版块
-            list_key = ['code','f14', 'res1', 'res2', 'res3', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
+            # list_key = ['code','f14', 'res1', 'res2', 'res3', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
+            list_key = ['code', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
             for k in list_key:
                 list_share.append(s.get(k,'-'))
             # print (list_share)
@@ -341,22 +352,22 @@ class collect_data(object):
             # 提取版块基本面数据
             b['code'] = b['f12'] + '1'
             # 基本面排名和详情
-            b['market'] = readableNum(b['f20'],divisor=10000)    # 流通市值
-            b['value'] = readableNum(b['f2020'],divisor=10000)    # 平均市值
-            b['profit'] = readableNum(b['f2045'],divisor=10000)  # 平均净利润
-            b['PE'] = b['f2009'] # 市盈率
-            b['PB'] = b['f2023'] # 市净率
-            b['ROE'] = b['f2037'] # ROE%
-            b['num'] = b['f134'] # 版块个数数量
-            #       含义: 代码, 名称 , 保留给资金流分析,         流通市值, 平均市值,平均净利润, 市盈率,市净率, ROE, 个股数量
-            list_key = ['code','f14', 'res1', 'res2', 'res3', 'market', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
+            # b['market'] = readableNum(b['f20'],divisor=10000,sort=True)    # 流通市值
+            b['value'] = readableNum(b['f2020'],divisor=10000,sort=True)    # 平均市值
+            b['profit'] = readableNum(b['f2045'],divisor=10000,sort=True)  # 平均净利润
+            b['PE'] = "{:6.1f}".format(b['f2009']) # 市盈率
+            b['PB'] = "{:5.1f}".format(b['f2023']) # 市净率
+            b['ROE'] = "{:4.1f}".format(b['f2037']) # ROE%
+            b['num'] = "{:3d}".format(b['f134']) # 版块个数数量
+            #       含义: 代码, 名称 , 保留给资金流分析,       排序, 平均市值,平均净利润, 市盈率,市净率, ROE, 个股数量
+            # list_key = ['code','f14', 'res1', 'res2', 'res3', 'res4', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
+            list_key = ['code', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
             for k in list_key:
                 list_block.append(b.get(k,'-'))
             # print (list_block)
             return (list_share, list_block)
         except Exception as e:
-            # raise Exception("get_code_fund err\r\n\turl:{}\r\n\tdata:{}\r\n\terr:{}".format(url, data, e)) ///////////////////////
-            raise Exception("get_code_fund err\r\n\turl:{}\r\n\tdata:{}\r\n\terr:{}\r\n\ts:{}\r\n\tb:{}\r\n\tlist_s:{}\r\n\tlist_b:{}".format(url, data, e, s, b, list_share, list_block))
+            raise Exception("get_code_fund err\r\n\turl:{}\r\n\tdata:{}\r\n\terr:{}".format(url, data, e))
             return None
 
     def get_blocks_from_web(self):
@@ -525,14 +536,21 @@ class collect_data(object):
         except Exception as e:
             raise Exception("save_info ERROR: \r\n\tinfo:{}\r\n\tfile:{}\r\n\terr:{}".format(info, fileName, e))
 
-    def save_fund(self, fund, file):
+    def save_fund(self, fund, file, res):
         try:
-            df = pd.read_csv(file, header=None, dtype=str, encoding="utf-8").set_index([0], drop=False)
-            # print (fund)
-            # print (df)
-            for key, value in fund.items():
-                df.loc[key]=value
-            df.to_csv(file, header=False, index=False)
+            print("save_fund to file: {}".format(file))
+            key = fund.keys()
+            with codecs.open(file, "r", encoding="utf8") as fi, \
+                codecs.open(get_tmp_file(), "w", encoding="utf8") as fo:
+                for line in fi:
+                    lists = line.split(",")
+                    if lists[0] in key:
+                        fo.write(','.join(lists[:res] + fund[lists[0]][1:]) + '\r')
+                    else:
+                        fo.write(line)
+            os.remove(file)
+            os.rename(get_tmp_file(), file)
+            print("save_fund finished: {}".format(file))
         except Exception as e:
             raise Exception("save_fund ERROR: \r\n\tfund:{}\r\n\tfile:{}\r\n\terr:{}".format(fund, file, e))
 
@@ -593,7 +611,7 @@ class collect_data(object):
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
-                blocks_code = [row[0] for row in reader]
+                blocks_code = [row[0] for row in reader if '-' not in row[0]]
         except Exception as e:
             self.rd['get_blocks_from_file'] = e
             print(e)
@@ -663,7 +681,7 @@ class collect_data(object):
             total = len(tickers)
             for i, ticker in enumerate(tickers,1):
                 try:
-                    # print("===> {}/{}\tget_all_funds({})_{}".format(i, total, ticker, j))  //////////////////////
+                    print("===> {}/{}\tget_all_funds({})_{}".format(i, total, ticker, j))
                     l = self.get_code_fund(ticker)
                     # print(l)
                     self.fund_ticker[ticker] = l[0]
@@ -675,13 +693,12 @@ class collect_data(object):
             tickers = retry
 
         try:
-            print("save_fund")
             # print (self.fund_ticker)
             # print (self.fund_block)
             if (len(self.fund_ticker)):
-                self.save_fund(self.fund_ticker, get_para_path()+"tickers.csv")
+                self.save_fund(self.fund_ticker, get_para_path()+"tickers.csv", 4)
             if (len(self.fund_block)):
-                self.save_fund(self.fund_block, get_para_path()+"blocks.csv")
+                self.save_fund(self.fund_block, get_para_path()+"blocks.csv", 5)
         except Exception as e:
             self.rd["get_all_funds_save"] = e
             print("get_all_funds_save:\t{}".format(e))
@@ -691,54 +708,46 @@ class collect_data(object):
         self.rd["===> get_all_funds"] = self.time_str
         print("===> get_all_funds END <===")
 
-    def update_check(self, manual=False):
+    def update_check(self):
         print("===> update_check START <===")
-        result = False
-        now = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime(
-            '%a %Y-%m-%d %H:%M:%S')
+        now = datetime.datetime.now(self.tz)
+        week = now.strftime('%a')
         self.rd['run_start'] = now
-        print("当前北京时间:{}".format(now))
-        week = now.split()[0]
-        hour = now.split()[2].split(':')[0]
-        if (week == 'Sat' or week == 'Sun' or hour < '07' or hour >= '16'):
-            if manual:
-                result = True
-            else:
-                t = self.get_code_info("0000011")
-                print("股票更新日期:    {} {}".format(t[0], t[1]))
-                self.rd['data_start'] = self.time_str
-                hour = t[1].split(':')[0]
-                min = t[1].split(':')[1]
-                if (hour == '15' and min > '05'):
-                    try:
-                        d = {}
-                        with open(get_report_file(), 'r') as f:
-                            lines = f.readlines()
-                            for line in lines:
-                                if "data_end" in line:
-                                    kv = line.replace('\t', '').strip().split(',')
-                                    d[kv[0]] = kv[1]
-                        # print (d)
-                        if d['data_end'][:13] == self.time_str[:13]:
-                            print("===> 已是最新数据, 无需更新! <===")
-                            print("===> update_check, DENY! <===")
-                            return result
-                    except Exception as e:
-                        print("Read report file failed. {}".format(e))
-            result = True
+        print("当前时间:{}".format(now))
+        if (week == 'Sat' or week == 'Sun' or now.hour < 7 or now.hour >= 16):
+            t = self.get_code_info("0000011")
+            print("股票更新日期:    {} {}".format(t[0], t[1]))
+            self.rd['data_start'] = self.time_str
+            hour = t[1].split(':')[0]
+            min = t[1].split(':')[1]
+            if (hour == '15' and min > '05'):
+                try:
+                    d = {}
+                    with open(get_report_file(), 'r') as f:
+                        lines = f.readlines()
+                        for line in lines:
+                            if "data_end" in line:
+                                kv = line.replace('\t', '').strip().split(',')
+                                d[kv[0]] = kv[1]
+                    # print (d)
+                    if d['data_end'][:13] == self.time_str[:13]:
+                        print("已是最新数据, 无需更新!")
+                        print("===> update_check, UPDATED! <===")
+                        return "UPDATED"
+                except Exception as e:
+                    print("Read report file failed. {}".format(e))
             print("===> update_check PASS <===")
-        if (result is False):
-            print("股票数据变动中, 为数据完整, 请在收盘后更新数据!")
-            print("===> update_check DENY <===")
-        return result
+            return "PASS"
+        print("股票数据变动中, 为数据完整, 请在收盘后更新数据!")
+        print("===> update_check DENY <===")
+        return "DENY"
 
     def update_finished(self):
         print("===> update_finished, START! <===")
         # 最后的数据更新时间
         self.rd['data_end'] = self.time_str
-        now = datetime.datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Shanghai')).strftime(
-            '%a %Y-%m-%d %H:%M:%S')
         # 程序运行结束时间
+        now = datetime.datetime.now(self.tz)
         self.rd['run_end'] = now
         try:
             if (os.path.exists(get_para_path()) is False):
@@ -758,16 +767,13 @@ class collect_data(object):
         return codes_dict
 
 def collect_data_test(cd):
-    cd.get_all_infos([])
-    cd.get_all_funds([])
-
-    # if (cd.update_check()):
-    #     cd.get_all_infos()
-    #     cd.get_all_funds()
-    #     cd.update_finished()
-
+    # cd.get_all_infos()
+    # cd.get_all_infos(cd.get_blocks_from_file())
     # codes = ['BK04561', 'BK04771', '0003332','6000171']
     # cd.get_all_infos(codes)
+    # codes = ['0003332','6000171']
+    # cd.get_all_funds(codes)
+    pass
 
 
 if __name__ == '__main__':
@@ -789,7 +795,9 @@ if __name__ == '__main__':
             infos = literal_eval(sys.argv[1])
             funds = literal_eval(sys.argv[2])
             print("\r\n===> 尝试修复 <===\r\n")
-            if cd.update_check(manual=True):
+            print("infos:{}".format(infos))
+            print("funds:{}".format(funds))
+            if cd.update_check() != "DENY":
                 print("get_all_infos:{}\r\nget_all_funds:{}\r\n".format(infos, funds))
                 if (len(infos)):
                     cd.get_all_infos(infos)
