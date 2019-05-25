@@ -14,7 +14,7 @@ def openBrowser(code):
     url = 'http://f10.eastmoney.com/f10_v2/OperationsRequired.aspx?code={}{}#'.format(shsz, code[:-1]) # F10资料
     webbrowser.open(url)
 
-def drawChart(graphicsView, file, kNumber='all', name=''):
+def drawChart(graphicsView, data, kNumber='all'):
     # 数据的最终格式:
     # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
     columns = ['date', 'time', 'market', 'code', 'name', 'close', 'open', 'high', 'low', 'volume', 'vol2', 'main',
@@ -37,9 +37,11 @@ def drawChart(graphicsView, file, kNumber='all', name=''):
         elif kNumber == '3m':
             n_end = 64
         elif kNumber == '1m':
-            n_end = 20
+            n_end = 24
         else:
             n_end = 0
+
+        file = "{}{}.csv".format(get_data_path(), data[0])
         quotes = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
         # quotes = pd.read_csv(file, header=None, engine='c', names=columns, dtype=dtype, na_values= '-')
         quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
@@ -48,25 +50,24 @@ def drawChart(graphicsView, file, kNumber='all', name=''):
         print("open {} file failed!".format(file))
         print(e)
         graphicsView.clear()
-        return
+        return None
     # print(quotes)
 
     # 作图初始化
     graphicsView.clear()
     p1 = graphicsView.addPlot(row=0, col=0,
-                                   title="{} {}".format(os.path.splitext(os.path.basename(file))[0], name),
+                                   title="{}".format(data), # //////////////////////////////////
                                    axisItems={'bottom': DateAxisItem(list(quotes['date']), orientation='bottom')})
     p2 = graphicsView.addPlot(row=1, col=0,
                                    axisItems={'left': VolumnAxisItem(orientation='left')})
     p2.hideAxis('bottom')
     p1.setMouseEnabled(x=True, y=False)  # 鼠标滚轮仅X轴缩放
     p2.setMouseEnabled(x=True, y=False)
-
     # 设置缩放
     p1Len = len(quotes)
     p1.setRange(yRange=[quotes[['low']].min()['low'], quotes[['high']].max()['high']])
-    p1.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
-    p2.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
+    # p1.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25) ////////////////////
+    # p2.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
     p1.setXLink(p2)  # 同步缩放
     p2.setXLink(p1)  # 同步缩放
 
@@ -85,8 +86,13 @@ def drawChart(graphicsView, file, kNumber='all', name=''):
     day20 = quotes['main'].rolling(24).mean()  # 增加 24日线
     p2.plot(day20, pen="#00ffff")
 
+    # p1.setScale(0.8) # ///////////////
+    # p2.setScale(0.8) # ///////////////
+    # 自动缩放可能要关联坐标变动.... 参考: https://stackoverflow.com/questions/51140994/autoscaling-y-axis-to-visible-data-in-pyqtgraph
+
     # # 参考1, 使用pyqtgraph: https://zmister.com/archives/187.html
     # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
+    return data[0]
 
 
 class PandasModel(QAbstractTableModel):
@@ -110,7 +116,10 @@ class PandasModel(QAbstractTableModel):
         if index.isValid():
             if role == Qt.DisplayRole:
                 return str(self._data.values[index.row()][index.column()])
-        return None
+            elif role == Qt.ForegroundRole:
+                if (index.row() == 1): # ///////////////////
+                    return QColor(Qt.red)
+        return QVariant()
 
     def headerData(self, col, orientation, role):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:

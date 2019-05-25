@@ -49,9 +49,9 @@ class collect_data(object):
             # "ya" 储存为 list: ['0.1205,0.8402,-0.7196,-0.5943,0.4737', '-0.3273,0.9383,-1.2656,-0.7716,1.0989', '-0.4815,1.0363,-1.5178,-0.982,1.4634', ... ]
             detail_capital[0].split(',')[4]
         except Exception as e:
-            self.rd["detail_capital_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
+            self.rd["detail_capital_{}".format(id)] = "url: {}\r\terr: {}\r\tinfo:{}".format(
                 url, e, detail_capital)
-            print("detail_capital_{}, err:{}\r\n\tinfo:{}".format(
+            print("detail_capital_{}, err:{}\r\tinfo:{}".format(
                 id, e, detail_capital))
             return None
 
@@ -75,9 +75,9 @@ class collect_data(object):
             # 储存为 list: ['2553.33', '2553.29', '2555.65', ...]
             detail_price[1]
         except Exception as e:
-            self.rd["detail_price_{}".format(id)] = "url: {}\r\n\terr: {}\r\n\tinfo:{}".format(
+            self.rd["detail_price_{}".format(id)] = "url: {}\r\terr: {}\r\tinfo:{}".format(
                 url, e, detail_price)
-            print("detail_price_{}, err:{}\r\n\tinfo:{}".format(id, e, detail_price))
+            print("detail_price_{}, err:{}\r\tinfo:{}".format(id, e, detail_price))
             return None
 
         # 将所有信息打包成字典并返回
@@ -184,7 +184,7 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '0.74%', '-75811.38', '285986', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%', '-0.63%', '2019-01-11 15:26:49']
             list1[23]
         except Exception as e:
-            raise Exception("get_code_info capital ERROR\r\n\turl:{}\r\n\tinfo_capital:{}\r\n\terr:{}".format(url, info_capital, e))
+            raise Exception("get_code_info capital ERROR\r\turl:{}\r\tinfo_capital:{}\r\terr:{}".format(url, info_capital, e))
             return None
 
         # 单日股价. 网址: "http://data.eastmoney.com/zjlx/601006.html"
@@ -210,7 +210,7 @@ class collect_data(object):
             # ['1', '000001', '上证指数', '2553.83', '18.73', '0.74', '14944410112', '122375663616', '0.85', '2535.10', '2539.55', '2554.79', '2533.36', '0.44', '0.87', '-']
             list2[13]
         except Exception as e:
-            raise Exception("get_code_info price ERROR\r\n\turl:{}\r\n\tinfo_price:{}\r\n\terr:{}".format(url, info_price, e))
+            raise Exception("get_code_info price ERROR\r\turl:{}\r\tinfo_price:{}\r\terr:{}".format(url, info_price, e))
             return None
 
         list_info = []
@@ -332,8 +332,19 @@ class collect_data(object):
 
             # 提取个股基本面数据
             s['code'] = str(s['f12']) + ('1' if s['f13'] == '1' else '2')
-            # 基本面综合评分, 满分100
-            s['score'] = "{:2d}".format(99-3 * (s['f3020'] + s['f3045'] + s['f3009'] + (5-s['f3023']) + s['f3049'] + s['f3129'] + s['f3037'] + s['f3135']-8))
+            # 基本面综合评分, 0-99分
+            # P = B*ROE*PE, 股价 = 净资产*净资产收益率*市盈率(市值对净利润的溢价) -> 关键指标:  净利润E, 净资产B,净资产收益率(ROE=E/B)
+            # 但是! 根据中国的情况, 大资金的选择偏向很明显: 1.市值容量大, 2.净利润. 3. 净资产. 4. ROE相关性不高. 因而对净利润和净资产进行加权处理
+            P=s['f3020']-1  # 总市值, 1-4, 1最好
+            E=(s['f3045']-1)*2  # 净利润, 1-4, 1最好
+            B=(s['f3135']-1)*2  # 净资产, 1-4, 1最好
+            ROE=s['f3037']-1# 净资产收益率, 1-4, 1最好
+            PE=s['f3009']-1 # 市盈率, 1-4, 1最好
+            PB=4-s['f3023'] # 市净率, 1-4, 4最好
+            GP=s['f3049']-1 # 毛利率, 1-4, 4最好
+            NP=s['f3129']-1 # 净利率, 1-4, 4最好
+            s['score'] = "{:2d}".format(99- 9.9 * (P+E+B+ROE+PE+PB+GP+NP))
+
             # 基本面排名和详情
             s['value'] = "{:3d} / {}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 排名/总市值
             s['profit'] = "{:3d} / {}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 排名/净利润
@@ -367,7 +378,7 @@ class collect_data(object):
             # print (list_block)
             return (list_share, list_block)
         except Exception as e:
-            raise Exception("get_code_fund err\r\n\turl:{}\r\n\tdata:{}\r\n\terr:{}".format(url, data, e))
+            raise Exception("get_code_fund err\r\turl:{}\r\tdata:{}\r\terr:{}".format(url, data, e))
             return None
 
     def get_blocks_from_web(self):
@@ -532,9 +543,9 @@ class collect_data(object):
                 if '-' not in lastLine[12:]:
                     flag_ok = True
             if (flag_ok is False):
-                raise Exception("save_info ERROR: \r\n\tlastLine:{}\r\n\tfile:{}\r\n\terr:{}".format(lastLine, fileName, "flag_ok is False"))
+                raise Exception("flag_ok is False: Invalid data.")
         except Exception as e:
-            raise Exception("save_info ERROR: \r\n\tinfo:{}\r\n\tfile:{}\r\n\terr:{}".format(info, fileName, e))
+            raise Exception("save_info ERROR: \r\tinfo:{}\r\tfile:{}\r\terr:{}".format(info, fileName, e))
 
     def save_fund(self, fund, file, res):
         try:
@@ -552,7 +563,7 @@ class collect_data(object):
             os.rename(get_tmp_file(), file)
             print("save_fund finished: {}".format(file))
         except Exception as e:
-            raise Exception("save_fund ERROR: \r\n\tfund:{}\r\n\tfile:{}\r\n\terr:{}".format(fund, file, e))
+            raise Exception("save_fund ERROR: \r\tfund:{}\r\tfile:{}\r\terr:{}".format(fund, file, e))
 
     def save_shares_in_blocks(self, block, shares, path=None):
         if (path is None):
@@ -656,9 +667,8 @@ class collect_data(object):
                     self.rd["get_all_infos({})_{}".format(code, j)] = e
                     print("get_all_infos({})_{}:\t{}".format(code, j, e))
             codes = retry
-
-        self.rd["get_all_infos_missed"] = codes
-        print("get_all_infos_missed: {}".format(codes))
+            self.rd['get_all_infos(missed)_{}'.format(j)] = codes
+            print("get_all_infos(missed)_{}: {}".format(j, codes))
 
         # /////////////////////// 计算股价, 资金流, 波动系数
         self.rd["===> get_all_infos"] = self.time_str
@@ -691,20 +701,20 @@ class collect_data(object):
                     self.rd["get_all_funds({})_{}".format(ticker, j)] = e
                     print("get_all_funds({})_{}:\t{}".format(ticker, j, e))
             tickers = retry
+            self.rd['get_all_funds(missed)_{}'.format(j)] = tickers
+            print("get_all_funds(missed)_{}: {}".format(j, tickers))
 
         try:
             # print (self.fund_ticker)
             # print (self.fund_block)
             if (len(self.fund_ticker)):
-                self.save_fund(self.fund_ticker, get_para_path()+"tickers.csv", 4)
+                self.save_fund(self.fund_ticker, get_para_path()+"tickers.csv", 5)
             if (len(self.fund_block)):
-                self.save_fund(self.fund_block, get_para_path()+"blocks.csv", 5)
+                self.save_fund(self.fund_block, get_para_path()+"blocks.csv", 6)
         except Exception as e:
-            self.rd["get_all_funds_save"] = e
-            print("get_all_funds_save:\t{}".format(e))
+            self.rd["get_all_funds(save)"] = e
+            print("get_all_funds(save):\t{}".format(e))
 
-        self.rd["get_all_funds_missed"] = tickers
-        print("get_all_funds_missed: {}".format(tickers))
         self.rd["===> get_all_funds"] = self.time_str
         print("===> get_all_funds END <===")
 

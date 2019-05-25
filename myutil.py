@@ -23,6 +23,10 @@ def get_para_path():
     # return get_cur_dir() + "\\_para\\"
     return ".\\_para\\"
 
+def get_block_path():
+    # return get_cur_dir() + "\\_para\\"
+    return ".\\_para\\blocks\\"
+
 def get_report_name():
     return "report.txt"
 

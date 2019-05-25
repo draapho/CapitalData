@@ -70,6 +70,7 @@ def send_mail(missed):
 
 def collect_silence(repeat=None):
     finished = False
+    check = None
     tz = pytz.timezone('Asia/Shanghai')
     now = datetime.datetime.now(tz)
     week = now.strftime('%a')

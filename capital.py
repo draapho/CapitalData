@@ -17,10 +17,6 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.sys_init()
 
     def sys_init(self):
-        # 变量
-        self.code="0000011"
-        self.file = ".\\_data\\_info\\{}.csv".format(self.code)
-
         # 工具按钮
         self.collectFunds = QAction('Run get_all_funds', self)
         self.autoFix = QAction('Fix based report.txt', self)
@@ -66,7 +62,6 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         #     # print (self.tickers_code)
         # except Exception as e:
         #     self.tickers_code = []
-        #     self.file = ""
         #     print (e)
         # items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers_code]
         # print (items_list)
@@ -96,10 +91,6 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
 
-        self.lineEditSticker.setCompleter(completer)
-        self.lineEditSticker.setText(os.path.splitext(os.path.basename(self.file))[0])
-        self.lineEditSticker.editingFinished.connect(self.editFinished)
-
         # table 初始数据
         # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('排序', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
         self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', '市值', '利润', 'PE', 'PB', 'ROE', '个股'],
@@ -109,8 +100,12 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
                                    dtype=str, encoding="utf-8", na_values='-')
         # print (self.tickers)
+        data = list(self.blocks.iloc[0])
 
-        # 点击操作
+        # UI 初始化
+        self.lineEditSticker.setCompleter(completer)
+        self.lineEditSticker.setText(data[0])
+        self.lineEditSticker.editingFinished.connect(self.editFinished)
         self.buttonSwitch.clicked.connect(self.switchClicked)
         self.buttonMore.clicked.connect(self.moreClicked)
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -118,11 +113,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tableView.installEventFilter(self) # eventFilter
         self.tableView.doubleClicked.connect(self.tableDoubleClicked)
         self.tableView.setSortingEnabled(True)
-
-        # 初始化GUI
         self.isTableBlocks = True
         self.set_table()
-        drawChart(self.graphicsView,self.file,name='上证指数',kNumber=self.kNumber)
+        self.code = drawChart(self.graphicsView,data ,kNumber=self.kNumber)
 
     # ======= 操作复用函数 =======
     def set_table(self):
@@ -131,39 +124,34 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         else:
             self.model = PandasModel(self.tickers)
         self.tableView.setModel(self.model)
-        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能变的非常差.
+        self.tableView.setColumnWidth(1, 60) # ////////////////////
+        self.tableView.setColumnWidth(5, 24)
+        self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
+        self.tableView.setColumnWidth(0, 60)
+
 
     def codeChoosed(self, lineEdit=False):
         text = self.lineEditSticker.text()
         if (text in list(self.tickers['name'])):
-            name = text
-            code = self.tickers[self.tickers['name'].isin([text])]
-            self.code = code.iloc[0][0]
+            data = list(self.tickers[self.tickers['name'].isin([text])].iloc[0])
         elif (text in list(self.blocks['name'])):
-            name = text
-            code = self.blocks[self.blocks['name'].isin([text])]
-            self.code = code.iloc[0][0]
+            data = list(self.blocks[self.blocks['name'].isin([text])].iloc[0])
         if (text in list(self.tickers['code'])):
-            self.code = text
-            name = self.tickers[self.tickers['code'].isin([text])]
-            name = name.iloc[0][1]
+            data = list(self.tickers[self.tickers['code'].isin([text])].iloc[0])
         elif (text in list(self.blocks['code'])):
-            self.code = text
-            name = self.blocks[self.blocks['code'].isin([text])]
-            name = name.iloc[0][1]
-        if (self.code !=  os.path.splitext(os.path.basename(self.file))[0]):
-            if (self.code in list(self.blocks['code']) and '-' not in self.code):
-                self.file = "{}\\{}.csv".format(os.path.dirname(self.file), self.code)
-                drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
+            data = list(self.blocks[self.blocks['code'].isin([text])].iloc[0])
+        if (self.code !=  data[0]):
+            if (data[0] in list(self.blocks['code']) and '-' not in data[0]):
+                self.code = drawChart(self.graphicsView, data, kNumber=self.kNumber)
                 if (lineEdit and self.isTableBlocks):
-                    crow = list(self.blocks.code).index(self.code)
+                    crow = list(self.blocks.code).index(data[0])
                     trow = self.model.getIndex().index(crow)
                     self.tableView.selectRow(trow)
-            elif (self.code in list(self.tickers['code'])):
-                self.file = "{}\\{}.csv".format(os.path.dirname(self.file), self.code)
-                drawChart(self.graphicsView,self.file,name=name,kNumber=self.kNumber)
+            elif (data[0] in list(self.tickers['code'])):
+                self.code = drawChart(self.graphicsView, data, kNumber=self.kNumber)
                 if (lineEdit and not self.isTableBlocks):
-                    crow = list(self.tickers.code).index(self.code)
+                    crow = list(self.tickers.code).index(data[0])
                     trow = self.model.getIndex().index(crow)
                     self.tableView.selectRow(trow)
 
@@ -191,11 +179,11 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             missed = {}
             with open(file, 'r') as f:
                 for line in f.readlines():
-                    if line.startswith("get_all_infos_missed,"):
+                    if line.startswith("get_all_infos(missed)_2,"):
                         l = literal_eval("["+line.split("[")[1])
                         # print (type(l),l)
                         missed['infos'] = l
-                    if line.startswith("get_all_funds_missed,"):
+                    if line.startswith("get_all_funds(missed)_2,"):
                         l = literal_eval("["+line.split("[")[1])
                         # print (type(l),l)
                         missed['funds'] = l
@@ -271,7 +259,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             if block[0].startswith("BK"):
                 dialog = GuiSub(block, self.kNumber, parent=self)
                 dialog.show()
-            else:
+            elif '-' not in block[0]:
                 url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
                 webbrowser.open(url)
         else: # 打开个股基本面/信息网页
@@ -280,7 +268,10 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     def moreClicked(self):
         code_list = list(self.blocks.code)
-        if not self.code.startswith("BK"):
+        print (self.code) #//////////////////
+        if self.code is None:
+            pass
+        elif not self.code.startswith("BK"):
             url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
             webbrowser.open(url)
         elif self.code in code_list:
@@ -296,19 +287,18 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.setupUi(self)
         self.block_code = block[0]
         self.block_name = block[1]
-        self.spara = para
+        self.kNumber = para
         self.sys_init_block()
 
     def sys_init_block(self):
-        self.sfile = ".\\_data\\_info\\{}.csv".format(self.block_code)
-
         # 读取列表
-        with open(".\\_para\\blocks\\{}.csv".format(self.block_code), 'r', encoding="utf-8") as csv_file:
+        with open("{}{}.csv".format(get_block_path(),self.block_code), 'r', encoding="utf-8") as csv_file:
             reader = csv.reader(csv_file)
             codes = [row[0] for row in reader]
         tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
                                    dtype=str, encoding="utf-8", na_values='-').set_index(['code'])
         self.stickers = (tickers.loc[codes]).reset_index()
+        data = list(self.stickers.iloc[0])
         # print(self.stickers)
 
         # 点击操作
@@ -322,8 +312,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.setWindowTitle("{} {}".format(self.block_code,self.block_name))
         self.model = PandasModel(self.stickers)
         self.tableView.setModel(self.model)
-        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        drawChart(self.graphicsView,self.sfile,name=self.block_name,kNumber=self.spara)
+        # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
 
     def eventFilter(self, obj, event):
         if (obj == self.tableView):
@@ -340,11 +330,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
                     elif (row >= len(self.stickers)):
                         row -= 1
                     srow = self.model.getIndex()[row]
-                    code = self.stickers.values[srow][0]
-                    name = self.stickers.values[srow][1]
-                    if (code != os.path.splitext(os.path.basename(self.sfile))[0]):
-                        self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
-                        drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
+                    data = list(self.stickers.iloc[srow])
+                    if (self.scode != data[0]):
+                        self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
         return False
 
     def sTableClicked(self, mi):
@@ -352,11 +340,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         # column = mi.column()
         # print (row, column)
         srow = self.model.getIndex()[mi.row()]
-        code = self.stickers.values[srow][0]
-        name = self.stickers.values[srow][1]
-        if (code !=  os.path.splitext(os.path.basename(self.sfile))[0]):
-            self.sfile = "{}\\{}.csv".format(os.path.dirname(self.sfile), code)
-            drawChart(self.graphicsView, self.sfile, name=name, kNumber=self.spara)
+        data = list(self.stickers.iloc[srow])
+        if (self.scode != data[0]):
+            self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
 
     def sTableDoubleClicked(self, mi):
         # 打开个股基本面/信息网页
