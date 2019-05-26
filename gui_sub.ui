@@ -72,8 +72,14 @@
      <widget class="QWidget" name="widget_2" native="true">
       <property name="minimumSize">
        <size>
-        <width>0</width>
+        <width>290</width>
         <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>690</width>
+        <height>16777215</height>
        </size>
       </property>
       <layout class="QGridLayout" name="gridLayout">
@@ -113,7 +119,7 @@
           <enum>QAbstractItemView::SelectRows</enum>
          </property>
          <attribute name="horizontalHeaderDefaultSectionSize">
-          <number>31</number>
+          <number>40</number>
          </attribute>
         </widget>
        </item>

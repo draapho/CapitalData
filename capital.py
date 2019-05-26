@@ -93,11 +93,11 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
         # table 初始数据
         # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('排序', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
-        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', '市值', '利润', 'PE', 'PB', 'ROE', '个股'],
+        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'],
                                  dtype=str, encoding="utf-8", na_values='-')
         # print (self.blocks)
         # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('评分', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
-        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
+        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'],
                                    dtype=str, encoding="utf-8", na_values='-')
         # print (self.tickers)
         data = list(self.blocks.iloc[0])
@@ -106,6 +106,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.lineEditSticker.setCompleter(completer)
         self.lineEditSticker.setText(data[0])
         self.lineEditSticker.editingFinished.connect(self.editFinished)
+        self.lineEditSticker.selectionChanged.connect(self.selection)
         self.buttonSwitch.clicked.connect(self.switchClicked)
         self.buttonMore.clicked.connect(self.moreClicked)
         self.tableView.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -115,21 +116,24 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tableView.setSortingEnabled(True)
         self.isTableBlocks = True
         self.set_table()
-        self.code = drawChart(self.graphicsView,data ,kNumber=self.kNumber)
+        self.code = drawChart(self.graphicsView,data,kNumber=self.kNumber)
 
     # ======= 操作复用函数 =======
     def set_table(self):
         if (self.isTableBlocks):
-            self.model = PandasModel(self.blocks)
+            self.model = PandasModel(self.blocks, parent=self.tableView)
         else:
-            self.model = PandasModel(self.tickers)
+            self.model = PandasModel(self.tickers, parent=self.tableView, coloring=True)
         self.tableView.setModel(self.model)
-        # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能变的非常差.
-        self.tableView.setColumnWidth(1, 60) # ////////////////////
-        self.tableView.setColumnWidth(5, 24)
+        # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能非常差.
+        self.tableView.setColumnWidth(1, 60)
+        self.tableView.setColumnWidth(5, 30)
+        self.tableView.setColumnWidth(6, 45)
+        self.tableView.setColumnWidth(9, 90)
+        self.tableView.setColumnWidth(10, 90)
+        self.tableView.setColumnWidth(11, 90)
         self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
         self.tableView.setColumnWidth(0, 60)
-
 
     def codeChoosed(self, lineEdit=False):
         text = self.lineEditSticker.text()
@@ -137,10 +141,13 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             data = list(self.tickers[self.tickers['name'].isin([text])].iloc[0])
         elif (text in list(self.blocks['name'])):
             data = list(self.blocks[self.blocks['name'].isin([text])].iloc[0])
-        if (text in list(self.tickers['code'])):
+        elif (text in list(self.tickers['code'])):
             data = list(self.tickers[self.tickers['code'].isin([text])].iloc[0])
         elif (text in list(self.blocks['code'])):
             data = list(self.blocks[self.blocks['code'].isin([text])].iloc[0])
+        else:
+            self.lineEditSticker.setText("")
+            data = [self.code]
         if (self.code !=  data[0]):
             if (data[0] in list(self.blocks['code']) and '-' not in data[0]):
                 self.code = drawChart(self.graphicsView, data, kNumber=self.kNumber)
@@ -207,6 +214,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (self.lineEditSticker.hasFocus()):   # 解决触发两次的问题
             self.codeChoosed(lineEdit=True)
 
+    def selection(self):
+        self.lineEditSticker.setText("")
+
     def switchClicked(self):
         self.isTableBlocks = not self.isTableBlocks
         self.set_table()
@@ -260,7 +270,35 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                 dialog = GuiSub(block, self.kNumber, parent=self)
                 dialog.show()
             elif '-' not in block[0]:
-                url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
+                # "https://legulegu.com/stockdata/a-ttm-lyr"      # 等权市盈率
+                # "https://legulegu.com/stockdata/shanghaiPE"     # 上证市盈率
+                # "https://legulegu.com/stockdata/shenzhenPE"     # 深证市盈率
+                # "https://legulegu.com/stockdata/zxbPE"          # 中小市盈率
+                # "https://legulegu.com/stockdata/cybPE"          # 创业市盈率
+                #
+                # "https://legulegu.com/stockdata/sz50-ttm-lyr"   # 上证50市盈率
+                # "https://legulegu.com/stockdata/hs300-ttm-lyr"  # 沪深300市盈率
+                # "https://legulegu.com/stockdata/sz180-ttm-lyr"  # 上证180市盈率
+                # "https://legulegu.com/stockdata/sz380-ttm-lyr"  # 上证380市盈率
+                # "https://legulegu.com/stockdata/zz500-ttm-lyr"  # 中证500市盈率
+                #
+                # "https://legulegu.com/stockdata/shanghaiPB"     # 上证市净率
+                # "https://legulegu.com/stockdata/shenzhenPB"     # 深证市净率
+                # "https://legulegu.com/stockdata/zxbPB"          # 中小市净率
+                # "https://legulegu.com/stockdata/cybPB"          # 创业市净率
+                #
+                # "https://legulegu.com/stockdata/sz50-pb"   # 上证50市净率
+                # "https://legulegu.com/stockdata/hs300-pb"  # 沪深300市净率
+                # "https://legulegu.com/stockdata/sz180-pb"  # 上证180市净率
+                # "https://legulegu.com/stockdata/sz380-pb"  # 上证380市净率
+                # "https://legulegu.com/stockdata/zz500-pb"  # 中证500市净率
+
+                # "https://legulegu.com/stockdata/market-analysis-average-price"  # A股平均股价
+                # "https://legulegu.com/stockdata/averageposition" 平均仓位
+                # "https://legulegu.com/stockdata/m1m2" m1m2
+                # "https://legulegu.com/stockdata/below-net-asset-statistics"   破净股比例
+
+                url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量 ////////////////////////
                 webbrowser.open(url)
         else: # 打开个股基本面/信息网页
             code = self.tickers.values[brow][0]
@@ -268,11 +306,11 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     def moreClicked(self):
         code_list = list(self.blocks.code)
-        print (self.code) #//////////////////
         if self.code is None:
             pass
         elif not self.code.startswith("BK"):
-            url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量
+            # url = 'http://data.eastmoney.com/cjsj/hbgyl.html'
+            url = 'https://legulegu.com/stockdata/m1m2' # M1M2供应量
             webbrowser.open(url)
         elif self.code in code_list:
             row = code_list.index(self.code)
@@ -310,9 +348,17 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
         # 初始化GUI
         self.setWindowTitle("{} {}".format(self.block_code,self.block_name))
-        self.model = PandasModel(self.stickers)
+        self.model = PandasModel(self.stickers, parent=self.tableView, coloring=True)
         self.tableView.setModel(self.model)
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.tableView.setColumnWidth(1, 60)
+        self.tableView.setColumnWidth(5, 30)
+        self.tableView.setColumnWidth(6, 45)
+        self.tableView.setColumnWidth(9, 90)
+        self.tableView.setColumnWidth(10, 90)
+        self.tableView.setColumnWidth(11, 90)
+        self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
+        self.tableView.setColumnWidth(0, 60)
         self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
 
     def eventFilter(self, obj, event):

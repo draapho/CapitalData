@@ -329,6 +329,22 @@ class collect_data(object):
                 s['f23'] = 99.9
             if s['f37']<0:
                 s['f37'] = 0
+            if s['f3020']<1:
+                s['f3020'] = 4
+            if s['f3045']<1:
+                s['f3045'] = 4
+            if s['f3135']<1:
+                s['f3135'] = 4
+            if s['f3037']<1:
+                s['f3037'] = 4
+            if s['f3009']<1:
+                s['f3009'] = 4
+            if s['f3023']<1:
+                s['f3023'] = 1 # 市净率, 1-4, 4最好
+            if s['f3049']<1:
+                s['f3049'] = 4
+            if s['f3129']<1:
+                s['f3129'] = 4
 
             # 提取个股基本面数据
             s['code'] = str(s['f12']) + ('1' if s['f13'] == '1' else '2')
@@ -336,43 +352,45 @@ class collect_data(object):
             # P = B*ROE*PE, 股价 = 净资产*净资产收益率*市盈率(市值对净利润的溢价) -> 关键指标:  净利润E, 净资产B,净资产收益率(ROE=E/B)
             # 但是! 根据中国的情况, 大资金的选择偏向很明显: 1.市值容量大, 2.净利润. 3. 净资产. 4. ROE相关性不高. 因而对净利润和净资产进行加权处理
             P=s['f3020']-1  # 总市值, 1-4, 1最好
-            E=(s['f3045']-1)*2  # 净利润, 1-4, 1最好
-            B=(s['f3135']-1)*2  # 净资产, 1-4, 1最好
+            E=s['f3045']-1  # 净利润, 1-4, 1最好
+            B=s['f3135']-1  # 净资产, 1-4, 1最好
             ROE=s['f3037']-1# 净资产收益率, 1-4, 1最好
             PE=s['f3009']-1 # 市盈率, 1-4, 1最好
             PB=4-s['f3023'] # 市净率, 1-4, 4最好
-            GP=s['f3049']-1 # 毛利率, 1-4, 4最好
-            NP=s['f3129']-1 # 净利率, 1-4, 4最好
-            s['score'] = "{:2d}".format(99- 9.9 * (P+E+B+ROE+PE+PB+GP+NP))
+            GP=s['f3049']-1 # 毛利率, 1-4, 1最好
+            NP=s['f3129']-1 # 净利率, 1-4, 1最好
+            s['score'] = "{:2.0f}".format(99- 2.75 * (P+E*E+B*B+ROE+PE+PB+GP+NP))
 
             # 基本面排名和详情
-            s['value'] = "{:3d} / {}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 排名/总市值
-            s['profit'] = "{:3d} / {}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 排名/净利润
-            s['PE'] = "{:5.1f} / {:.1f}".format(s['f9'],b['f2009']) # 市盈率/版块市盈率/
-            s['PB'] = "{:4.1f} / {:.1f}".format(s['f23'],b['f2023']) # 市净率/版块市净率
-            s['ROE'] = "{:4.1f} / {:.1f}".format(s['f37'],b['f2037']) # ROE/版块ROE%
+            s['PE'] = "{:5.1f}".format(s['f9']) # 市盈率
+            s['PB'] = "{:4.1f}".format(s['f23']) # 市净率
+            s['ROE'] = "{:4.1f}".format(s['f37']) # ROE
+            s['value'] = "{:3d} / {}".format(s['f1020'],readableNum(s['f20'],divisor=10000)) # 行业排名/总市值
+            s['profit'] = "{:3d} / {}".format(s['f1045'],readableNum(s['f45'],divisor=10000)) # 行业排名/净利润
             s['blk'] = "{:3d} / {} ".format(b['f134'],b['f14']) # 个股数量/所属板块
             # print (s)
             #       含义: 代码, 名称 , 保留给资金流分析,         评分,   总市值,    净利润, 市盈率,市净率, ROE, 所属版块
             # list_key = ['code','f14', 'res1', 'res2', 'res3', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
-            list_key = ['code', 'score', 'value', 'profit', 'PE', 'PB', 'ROE', 'blk']
+            list_key = ['code', 'score', 'PE', 'PB', 'ROE', 'profit', 'value', 'blk']
             for k in list_key:
                 list_share.append(s.get(k,'-'))
             # print (list_share)
 
-            # 提取版块基本面数据
+            # 提取版块基本面数据  # /////////////////////////// 网页上能直接提取....包括沪深...
+            # http://data.eastmoney.com/gzfx/hylist.html
+            # http://data.eastmoney.com/gzfx/scgk.html  ///////////////////////////////
             b['code'] = b['f12'] + '1'
             # 基本面排名和详情
-            # b['market'] = readableNum(b['f20'],divisor=10000,sort=True)    # 流通市值
-            b['value'] = readableNum(b['f2020'],divisor=10000,sort=True)    # 平均市值
-            b['profit'] = readableNum(b['f2045'],divisor=10000,sort=True)  # 平均净利润
             b['PE'] = "{:6.1f}".format(b['f2009']) # 市盈率
             b['PB'] = "{:5.1f}".format(b['f2023']) # 市净率
             b['ROE'] = "{:4.1f}".format(b['f2037']) # ROE%
+            b['value'] = readableNum(b['f2020'],divisor=10000,sort=True)    # 平均市值
+            b['profit'] = readableNum(b['f2045'],divisor=10000,sort=True)  # 平均净利润
+            # b['market'] = readableNum(b['f20'],divisor=10000,sort=True)    # 流通市值
             b['num'] = "{:3d}".format(b['f134']) # 版块个数数量
             #       含义: 代码, 名称 , 保留给资金流分析,       排序, 平均市值,平均净利润, 市盈率,市净率, ROE, 个股数量
             # list_key = ['code','f14', 'res1', 'res2', 'res3', 'res4', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
-            list_key = ['code', 'value', 'profit', 'PE', 'PB', 'ROE', 'num']
+            list_key = ['code', 'PE', 'PB', 'ROE', 'profit', 'value', 'num']
             for k in list_key:
                 list_block.append(b.get(k,'-'))
             # print (list_block)
@@ -671,6 +689,8 @@ class collect_data(object):
             print("get_all_infos(missed)_{}: {}".format(j, codes))
 
         # /////////////////////// 计算股价, 资金流, 波动系数
+        # 股价相对强度, 需要设置关键日期, 然后计算波动幅度
+        # 资金流均线 直接排序
         self.rd["===> get_all_infos"] = self.time_str
         print("===> get_all_infos END <===")
 
@@ -777,12 +797,14 @@ class collect_data(object):
         return codes_dict
 
 def collect_data_test(cd):
-    # cd.get_all_infos()
-    # cd.get_all_infos(cd.get_blocks_from_file())
+    # cd.get_all_infos()                                        # 获取所有资金信息
+    # cd.get_all_infos(cd.get_blocks_from_file())               # 获取板块资金信息
+    # cd.get_all_infos(cd.get_shares_from_file())               # 获取股票资金信息
     # codes = ['BK04561', 'BK04771', '0003332','6000171']
-    # cd.get_all_infos(codes)
+    # cd.get_all_infos(codes)                                   # 获取指定资金信息
+    # cd.get_all_funds()                                        # 获取所有基本信息
     # codes = ['0003332','6000171']
-    # cd.get_all_funds(codes)
+    # cd.get_all_funds(codes)                                   # 获取指定基本信息
     pass
 
 

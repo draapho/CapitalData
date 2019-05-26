@@ -56,39 +56,63 @@ def drawChart(graphicsView, data, kNumber='all'):
     # 作图初始化
     graphicsView.clear()
     p1 = graphicsView.addPlot(row=0, col=0,
-                                   title="{}".format(data), # //////////////////////////////////
                                    axisItems={'bottom': DateAxisItem(list(quotes['date']), orientation='bottom')})
     p2 = graphicsView.addPlot(row=1, col=0,
-                                   axisItems={'left': VolumnAxisItem(orientation='left')})
+                                   axisItems={'left': VolumnAxisItem(orientation='left'),
+                                              'bottom': DateAxisItem(list(quotes['date']), orientation='bottom')})
+
+    y1Axis = p1.getAxis('left')
+    y2Axis = p2.getAxis('left')
+    # y1Axis.setLabel(text='Price', units='units')
+    # y2Axis.setLabel(text='Volumn', units='units')
+    y1Axis.setWidth(w=40)
+    y2Axis.setWidth(w=40)
+    title = "{} <i>{}</i>".format(data[0][:-1], data[1])
+    if (data[0].startswith("BK") or data[0].startswith("399") or data[0] == "0000011"):
+        pass
+        # ////////////////////////////////////////////// 也显示一下
+    else:
+        if (data[6]<" 30.0"):     # 市盈率
+            color = "#969696"
+        elif (data[6]<" 60.0"):
+            color = "#FF00FF"
+        else:
+            color = "#FF0000"
+        title += "<br></br><font color={}>PE{}</font>".format(color,data[6].strip())
+        if (data[7]<" 3.0"):     # 市净率
+            color = "#969696"
+        elif (data[7]<" 6.0"):
+            color = "#FF00FF"
+        else:
+            color = "#FF0000"
+        title += " <font color={}>PB{}</font>".format(color,data[7].strip())
+    p1.setTitle(title)
     p2.hideAxis('bottom')
+
     p1.setMouseEnabled(x=True, y=False)  # 鼠标滚轮仅X轴缩放
     p2.setMouseEnabled(x=True, y=False)
     # 设置缩放
     p1Len = len(quotes)
     p1.setRange(yRange=[quotes[['low']].min()['low'], quotes[['high']].max()['high']])
-    # p1.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25) ////////////////////
-    # p2.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
+    p1.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
+    p2.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
+    # p1.enableAutoRange()
+    # p2.enableAutoRange()
     p1.setXLink(p2)  # 同步缩放
     p2.setXLink(p1)  # 同步缩放
 
     # 导入数据
     item = KItem(quotes[['open', 'high', 'low', 'close']])
     p1.addItem(item)
-    # day5 = quotes['close'].rolling(5).mean()  # 增加 5日线
-    # p1.plot(day5, pen="#ffffff")  # 白色
-    day20 = quotes['close'].rolling(24).mean()  # 增加 24日线
-    p1.plot(day20, pen="#00ffff")  # 青色
+    day = quotes['close'].rolling(16).mean()  # 日均线
+    p1.plot(day, pen="#ffffff")
 
     item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
     p2.addItem(item)
-    # day5 = quotes['main'].rolling(5).mean()  # 增加 5日线
-    # p2.plot(day5, pen="#ffffff")
-    day20 = quotes['main'].rolling(24).mean()  # 增加 24日线
-    p2.plot(day20, pen="#00ffff")
-
-    # p1.setScale(0.8) # ///////////////
-    # p2.setScale(0.8) # ///////////////
-    # 自动缩放可能要关联坐标变动.... 参考: https://stackoverflow.com/questions/51140994/autoscaling-y-axis-to-visible-data-in-pyqtgraph
+    dayS = quotes['main'].rolling(5).mean()  # 短均线
+    p2.plot(dayS, pen="#ffffff")
+    dayL = quotes['main'].rolling(12).mean()  # 长均线
+    p2.plot(dayL, pen="#00ffff")
 
     # # 参考1, 使用pyqtgraph: https://zmister.com/archives/187.html
     # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
@@ -99,9 +123,10 @@ class PandasModel(QAbstractTableModel):
     """
     Class to populate a table view with a pandas dataframe
     """
-    def __init__(self, data, parent=None):
+    def __init__(self, data, parent=None, coloring=False):
         QAbstractTableModel.__init__(self, parent)
         self._data = data
+        self.coloring=coloring
         self.index = list(self._data.index.values)
 
     def rowCount(self, parent=None):
@@ -116,9 +141,14 @@ class PandasModel(QAbstractTableModel):
         if index.isValid():
             if role == Qt.DisplayRole:
                 return str(self._data.values[index.row()][index.column()])
-            elif role == Qt.ForegroundRole:
-                if (index.row() == 1): # ///////////////////
-                    return QColor(Qt.red)
+            elif self.coloring and (role == Qt.ForegroundRole):
+                if (index.column() == 5):
+                    data = self._data.values[index.row()][5]
+                    if (data<"50"):      # 总体评分
+                        return QColor("#F53131")
+                    elif (data<"70"):
+                        return QColor("#D63DD6")
+                    # return QColor(Qt.red)
         return QVariant()
 
     def headerData(self, col, orientation, role):
@@ -256,4 +286,5 @@ class VolumnAxisItem(pg.AxisItem):
         super(VolumnAxisItem, self).__init__(*args, **kwargs)
 
     def tickStrings(self, values, scale, spacing):
-        return [format(value, '.0e') for value in values]
+        # return [format(value, '.0e') for value in values]
+        return [readableNum(value,divisor=10000,power="万",precision=0) for value in values]

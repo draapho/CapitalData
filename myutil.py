@@ -149,7 +149,7 @@ in a 7 or 8 character column respectively,
 which one can strip() if the display is not
 using a fixed width font.
 """
-def readableNum(num, divisor=1000, power="", sort=False):
+def readableNum(num, divisor=1000, power="", sort=False, precision=1):
     num=float(num)
     if divisor == 1024:
         powers=["  ","Ki","Mi","Gi","Ti","Pi"]
@@ -162,10 +162,8 @@ def readableNum(num, divisor=1000, power="", sort=False):
         num /= divisor
         power=powers[powers.index(power)+1]
     if sort:
-        return "{}{:5.1f}".format(power,num)
+        format_str = "{}{:"+str(4+precision)+"."+str(precision)+"f}"  # "{}{:5.1f}"
+        return format_str.format(power,num)
     else:
-        return "{:.1f}{}".format(num,power)
-
-
-if __name__ == '__main__':
-    print (readableNum(1264, divisor=10000))
+        format_str = "{:."+str(precision)+"f}{}" # "{:.1f}{}"
+        return format_str.format(num,power)

@@ -44,7 +44,8 @@ class Ui_Dialog(object):
         self.graphicsView.setObjectName("graphicsView")
         self.verticalLayout.addWidget(self.graphicsView)
         self.widget_2 = QtWidgets.QWidget(self.splitter)
-        self.widget_2.setMinimumSize(QtCore.QSize(0, 0))
+        self.widget_2.setMinimumSize(QtCore.QSize(290, 0))
+        self.widget_2.setMaximumSize(QtCore.QSize(690, 16777215))
         self.widget_2.setObjectName("widget_2")
         self.gridLayout = QtWidgets.QGridLayout(self.widget_2)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
@@ -60,7 +61,7 @@ class Ui_Dialog(object):
         self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.tableView.setObjectName("tableView")
-        self.tableView.horizontalHeader().setDefaultSectionSize(31)
+        self.tableView.horizontalHeader().setDefaultSectionSize(40)
         self.gridLayout.addWidget(self.tableView, 0, 0, 1, 2)
         self.horizontalLayout.addWidget(self.splitter)
 
