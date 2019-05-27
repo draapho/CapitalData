@@ -80,6 +80,7 @@ def collect_silence(repeat=None):
         check = cd.update_check()
         if (check == "PASS"):
             cd.get_all_infos()
+            cd.calculate_rri()
             if ((week == 'Fri' and now.hour >= 15) or week == 'Sat' or week == 'Sun'):
                 cd.get_all_funds()
             cd.update_finished()

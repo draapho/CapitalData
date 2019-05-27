@@ -8,13 +8,11 @@ import pyqtgraph as pg
 def openBrowser(code):
     url = 'http://data.eastmoney.com/stockcalendar/{}.html'.format(code[:-1]) # 个股日历
     webbrowser.open(url)
-    # url = 'http://data.eastmoney.com/bbsj/{}.html'.format(code[:-1]) # 业绩报表
+    # shsz = "SH" if (code[-1]==1) else "SZ"
+    # url = 'http://f10.eastmoney.com/f10_v2/OperationsRequired.aspx?code={}{}#'.format(shsz, code[:-1]) # F10资料, 很多个股没有这个页面
     # webbrowser.open(url)
-    shsz = "SH" if (code[-1]==1) else "SZ"
-    url = 'http://f10.eastmoney.com/f10_v2/OperationsRequired.aspx?code={}{}#'.format(shsz, code[:-1]) # F10资料
-    webbrowser.open(url)
 
-def drawChart(graphicsView, data, kNumber='all'):
+def drawChart(graphicsView, data, para):
     # 数据的最终格式:
     # ['2019-01-11", "15:26:49', '1', '000001', '上证指数', '2553.83', '2539.55', '2554.79', '2533.36', '14944410112', '122375663616', '-75811.38', '7516236800', '-7049105152', '46713.16', '0.39%', '25009520128', '-26234765568', '-122524.54', '-1.03%', '43805553408', '-44895364096', '-108981.07', '-0.91%', '43093999360', '-41246074880', '184792.45', '1.55%']
     columns = ['date', 'time', 'market', 'code', 'name', 'close', 'open', 'high', 'low', 'volume', 'vol2', 'main',
@@ -30,17 +28,12 @@ def drawChart(graphicsView, data, kNumber='all'):
                       ])
     # 读取数据
     try:
-        if kNumber == '1y':
-            n_end = 256
-        elif kNumber == '6m':
-            n_end = 128
-        elif kNumber == '3m':
-            n_end = 64
-        elif kNumber == '1m':
-            n_end = 24
-        else:
-            n_end = 0
-
+        n_end = int(para.get('K_NUMBER', 0))
+        if (n_end>256) or (n_end<0):
+            n_end=0
+    except:
+        n_end=0
+    try:
         file = "{}{}.csv".format(get_data_path(), data[0])
         quotes = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
         # quotes = pd.read_csv(file, header=None, engine='c', names=columns, dtype=dtype, na_values= '-')
@@ -69,23 +62,23 @@ def drawChart(graphicsView, data, kNumber='all'):
     y2Axis.setWidth(w=40)
     title = "{} <i>{}</i>".format(data[0][:-1], data[1])
     if (data[0].startswith("BK") or data[0].startswith("399") or data[0] == "0000011"):
-        pass
-        # ////////////////////////////////////////////// 也显示一下
+        title += "<br></br>PE{}".format(data[6])
+        title += " PB{}".format(data[7])
     else:
-        if (data[6]<" 30.0"):     # 市盈率
+        if (data[6]<30.0):     # 市盈率
             color = "#969696"
-        elif (data[6]<" 60.0"):
+        elif (data[6]<60.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += "<br></br><font color={}>PE{}</font>".format(color,data[6].strip())
-        if (data[7]<" 3.0"):     # 市净率
+        title += "<br></br><font color={}>PE{}</font>".format(color,data[6])
+        if (data[7]<3.0):     # 市净率
             color = "#969696"
-        elif (data[7]<" 6.0"):
+        elif (data[7]<6.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += " <font color={}>PB{}</font>".format(color,data[7].strip())
+        title += " <font color={}>PB{}</font>".format(color,data[7])
     p1.setTitle(title)
     p2.hideAxis('bottom')
 
@@ -101,6 +94,9 @@ def drawChart(graphicsView, data, kNumber='all'):
     p1.setXLink(p2)  # 同步缩放
     p2.setXLink(p1)  # 同步缩放
 
+    # ///////////////////////////////////// 读取关键日期, 显示出来
+    # ////////////////////////////////////  资金异动全部标注出来.
+
     # 导入数据
     item = KItem(quotes[['open', 'high', 'low', 'close']])
     p1.addItem(item)
@@ -109,10 +105,10 @@ def drawChart(graphicsView, data, kNumber='all'):
 
     item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
     p2.addItem(item)
-    dayS = quotes['main'].rolling(5).mean()  # 短均线
+    dayS = quotes['main'].rolling(16).mean()  # 短均线
     p2.plot(dayS, pen="#ffffff")
-    dayL = quotes['main'].rolling(12).mean()  # 长均线
-    p2.plot(dayL, pen="#00ffff")
+    # dayL = quotes['main'].rolling(12).mean()  # 长均线
+    # p2.plot(dayL, pen="#00ffff")
 
     # # 参考1, 使用pyqtgraph: https://zmister.com/archives/187.html
     # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
@@ -123,11 +119,13 @@ class PandasModel(QAbstractTableModel):
     """
     Class to populate a table view with a pandas dataframe
     """
-    def __init__(self, data, parent=None, coloring=False):
+    def __init__(self, data, parent=None, isBlock=False):
         QAbstractTableModel.__init__(self, parent)
         self._data = data
-        self.coloring=coloring
+        self.isBlock=isBlock
         self.index = list(self._data.index.values)
+        self.blist = ["0000011","3990012","3990052","3990062","BK06111","BK05001","BK07011","BK06121","BK07051"] # 有web链接的行
+
 
     def rowCount(self, parent=None):
         return len(self._data.values)
@@ -139,16 +137,20 @@ class PandasModel(QAbstractTableModel):
 
     def data(self, index, role=Qt.DisplayRole):
         if index.isValid():
+            col = index.column()
             if role == Qt.DisplayRole:
-                return str(self._data.values[index.row()][index.column()])
-            elif self.coloring and (role == Qt.ForegroundRole):
-                if (index.column() == 5):
-                    data = self._data.values[index.row()][5]
-                    if (data<"50"):      # 总体评分
+                return str(self._data.values[index.row()][col])
+            elif role == Qt.ForegroundRole:
+                if (col == 5) and (not self.isBlock):
+                    data = self._data.values[index.row()][col]
+                    if (data<50):      # 总体评分
                         return QColor("#F53131")
-                    elif (data<"70"):
+                    elif (data<70):
                         return QColor("#D63DD6")
-                    # return QColor(Qt.red)
+                if ((col==6) or (col==7)) and self.isBlock:
+                    data = self._data.values[index.row()][0]
+                    if data in self.blist:
+                        return QColor("#1A0DAB")
         return QVariant()
 
     def headerData(self, col, orientation, role):

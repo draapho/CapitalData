@@ -42,6 +42,18 @@ def get_parameter_file():
 def get_tmp_file():
     return get_para_path() + "tmp"
 
+def read_parameter_ini():
+    try:
+        with open(get_parameter_file(), 'r', encoding="utf-8-sig") as csv_file:
+            reader = csv.reader(skip_comments(csv_file))
+            para = dict(reader)
+    except Exception as e:
+        para = {}
+        print("Decode \"parameter.ini\" failed! ERR:{}".format(e))
+    para['K_NUMBER'] = para.get('K_NUMBER','all')
+    para['REF_DATE'] = para.get('REF_DATE','')
+    return para
+
 
 """
 HOW to use:

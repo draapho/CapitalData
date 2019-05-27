@@ -18,6 +18,12 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     def sys_init(self):
         # 工具按钮
+        self.webM1M2 = QAction('M1M2走势', self)
+        self.webPrice = QAction('平均股价', self)
+        self.webPosition = QAction('平均持仓', self)
+        self.webPE = QAction('等权市盈率', self)
+        self.webPB = QAction('破净股比例', self)
+        self.calculateRRI = QAction('Run calculate_rri', self)
         self.collectFunds = QAction('Run get_all_funds', self)
         self.autoFix = QAction('Fix based report.txt', self)
         self.collectSilence = QAction('Run collect_silence', self)
@@ -28,6 +34,13 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.blocksFolder = QAction('Get tickers in blocks', self)
 
         menu = QMenu(self)
+        menu.addAction(self.webM1M2)
+        menu.addAction(self.webPrice)
+        menu.addAction(self.webPosition)
+        menu.addAction(self.webPE)
+        menu.addAction(self.webPB)
+        menu.addSeparator()
+        menu.addAction(self.calculateRRI)
         menu.addAction(self.collectFunds)
         menu.addAction(self.collectSilence)
         menu.addAction(self.autoFix)
@@ -40,6 +53,12 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         menu.addAction(self.blocksFolder)
         self.toolButton.setMenu(menu)
 
+        self.webM1M2.triggered.connect(self.tools)
+        self.webPrice.triggered.connect(self.tools)
+        self.webPosition.triggered.connect(self.tools)
+        self.webPE.triggered.connect(self.tools)
+        self.webPB.triggered.connect(self.tools)
+        self.calculateRRI.triggered.connect(self.tools)
         self.collectFunds.triggered.connect(self.tools)
         self.collectSilence.triggered.connect(self.tools)
         self.autoFix.triggered.connect(self.tools)
@@ -49,9 +68,8 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.blocksCsv.triggered.connect(self.tools)
         self.blocksFolder.triggered.connect(self.tools)
 
-        para = self.read_parameter_ini()
-        print(para)
-        self.kNumber = para.get('K_NUMBER', 'all')
+        self.para = read_parameter_ini()
+        print(self.para)
 
         # # 搜索文件列表, 加入自动匹配
         # self.path = ".\\_data\\_info\\*.csv"
@@ -94,13 +112,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # table 初始数据
         # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('排序', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
         self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'],
-                                 dtype=str, encoding="utf-8", na_values='-')
+                                 dtype=str, encoding="utf-8")  # na_values='-'
         # print (self.blocks)
-        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('评分', 'f'), ('总市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('板块', 'f')]),
-        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'],
-                                   dtype=str, encoding="utf-8", na_values='-')
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('评分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
+        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
         # print (self.tickers)
         data = list(self.blocks.iloc[0])
+        ##//////////////////////////////////////////////////////// pandas 小数精度问题. 解决方法: pandas导入, pandas输出, tableview设置...
+        ## //////////////////////////// 板块加载数字化. 需要修改 tickers.csv
 
         # UI 初始化
         self.lineEditSticker.setCompleter(completer)
@@ -116,14 +135,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tableView.setSortingEnabled(True)
         self.isTableBlocks = True
         self.set_table()
-        self.code = drawChart(self.graphicsView,data,kNumber=self.kNumber)
+        self.code = drawChart(self.graphicsView,data,self.para)
 
     # ======= 操作复用函数 =======
     def set_table(self):
         if (self.isTableBlocks):
-            self.model = PandasModel(self.blocks, parent=self.tableView)
+            self.model = PandasModel(self.blocks, parent=self.tableView, isBlock=True)
         else:
-            self.model = PandasModel(self.tickers, parent=self.tableView, coloring=True)
+            self.model = PandasModel(self.tickers, parent=self.tableView)
         self.tableView.setModel(self.model)
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能非常差.
         self.tableView.setColumnWidth(1, 60)
@@ -150,32 +169,34 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             data = [self.code]
         if (self.code !=  data[0]):
             if (data[0] in list(self.blocks['code']) and '-' not in data[0]):
-                self.code = drawChart(self.graphicsView, data, kNumber=self.kNumber)
+                self.code = drawChart(self.graphicsView, data, self.para)
                 if (lineEdit and self.isTableBlocks):
                     crow = list(self.blocks.code).index(data[0])
                     trow = self.model.getIndex().index(crow)
                     self.tableView.selectRow(trow)
             elif (data[0] in list(self.tickers['code'])):
-                self.code = drawChart(self.graphicsView, data, kNumber=self.kNumber)
+                self.code = drawChart(self.graphicsView, data, self.para)
                 if (lineEdit and not self.isTableBlocks):
                     crow = list(self.tickers.code).index(data[0])
                     trow = self.model.getIndex().index(crow)
                     self.tableView.selectRow(trow)
 
-    def read_parameter_ini(self):
-        try:
-            with open(get_parameter_file(), 'r', encoding="utf-8-sig") as csv_file:
-                reader = csv.reader(skip_comments(csv_file))
-                para = dict(reader)
-        except Exception as e:
-            para = {}
-            print("Decode \"parameter.ini\" failed! ERR:{}".format(e))
-        return para
-
     # ======= operation =======
     def tools(self):
-        if self.sender() == self.collectFunds:
+        if self.sender() == self.webM1M2:
+            webbrowser.open("https://legulegu.com/stockdata/m1m2")  # M1M2供应量
+        elif self.sender() == self.webPrice:
+            webbrowser.open("https://legulegu.com/stockdata/market-analysis-average-price")  # A股平均股价
+        elif self.sender() == self.webPosition:
+            webbrowser.open("https://legulegu.com/stockdata/averageposition")  # 平均仓位
+        elif self.sender() == self.webPE:
+            webbrowser.open("https://legulegu.com/stockdata/a-ttm-lyr")  # 等权市盈率
+        elif self.sender() == self.webPB:
+            webbrowser.open("https://legulegu.com/stockdata/below-net-asset-statistics")  # 破净股比例
+        elif self.sender() == self.collectFunds:
             subprocess.call('python collect_data.py "get_all_funds"',shell=False)
+        elif self.sender() == self.calculateRRI:
+            subprocess.call('python collect_data.py "calculate_rri"',shell=False)
         elif self.sender() == self.collectSilence:
             # os.system(get_cur_dir()+"\\collect_silence.bat")
             # subprocess.call('start /wait collect_silence.bat', shell=True)
@@ -199,7 +220,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             os.startfile('.\\_para\\')
         elif self.sender() == self.setParameter:
             os.startfile(get_parameter_file())
-            self.kNumber = self.read_parameter_ini().get('K_NUMBER', 'all')
+            self.para = read_parameter_ini()
         elif self.sender() == self.tickersCsv:
             subprocess.call('python collect_data.py "shares_dl_csv"', shell=False)
         elif self.sender() == self.blocksCsv:
@@ -264,42 +285,61 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     def tableDoubleClicked(self, mi):
         brow = self.model.getIndex()[mi.row()]
+        col = mi.column()
         if (self.isTableBlocks):
             block = self.blocks.values[brow]
-            if block[0].startswith("BK"):
-                dialog = GuiSub(block, self.kNumber, parent=self)
+            if block[0].startswith("BK") and (col < 6):
+                dialog = GuiSub(block, self.para, parent=self)
                 dialog.show()
             elif '-' not in block[0]:
-                # "https://legulegu.com/stockdata/a-ttm-lyr"      # 等权市盈率
-                # "https://legulegu.com/stockdata/shanghaiPE"     # 上证市盈率
-                # "https://legulegu.com/stockdata/shenzhenPE"     # 深证市盈率
-                # "https://legulegu.com/stockdata/zxbPE"          # 中小市盈率
-                # "https://legulegu.com/stockdata/cybPE"          # 创业市盈率
-                #
-                # "https://legulegu.com/stockdata/sz50-ttm-lyr"   # 上证50市盈率
-                # "https://legulegu.com/stockdata/hs300-ttm-lyr"  # 沪深300市盈率
-                # "https://legulegu.com/stockdata/sz180-ttm-lyr"  # 上证180市盈率
-                # "https://legulegu.com/stockdata/sz380-ttm-lyr"  # 上证380市盈率
-                # "https://legulegu.com/stockdata/zz500-ttm-lyr"  # 中证500市盈率
-                #
-                # "https://legulegu.com/stockdata/shanghaiPB"     # 上证市净率
-                # "https://legulegu.com/stockdata/shenzhenPB"     # 深证市净率
-                # "https://legulegu.com/stockdata/zxbPB"          # 中小市净率
-                # "https://legulegu.com/stockdata/cybPB"          # 创业市净率
-                #
-                # "https://legulegu.com/stockdata/sz50-pb"   # 上证50市净率
-                # "https://legulegu.com/stockdata/hs300-pb"  # 沪深300市净率
-                # "https://legulegu.com/stockdata/sz180-pb"  # 上证180市净率
-                # "https://legulegu.com/stockdata/sz380-pb"  # 上证380市净率
-                # "https://legulegu.com/stockdata/zz500-pb"  # 中证500市净率
-
-                # "https://legulegu.com/stockdata/market-analysis-average-price"  # A股平均股价
-                # "https://legulegu.com/stockdata/averageposition" 平均仓位
-                # "https://legulegu.com/stockdata/m1m2" m1m2
-                # "https://legulegu.com/stockdata/below-net-asset-statistics"   破净股比例
-
-                url = 'http://data.eastmoney.com/cjsj/hbgyl.html' # 货币供应量 ////////////////////////
-                webbrowser.open(url)
+                url = None
+                if block[0] == '0000011':
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/shanghaiPE"     # 上证市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/shanghaiPB"     # 上证市净率
+                elif block[0] == "3990012":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/shenzhenPE"     # 深证市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/shenzhenPB"     # 深证市净率
+                elif block[0] == "3990052":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/zxbPE"          # 中小市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/zxbPB"          # 中小市净率
+                elif block[0] == "3990062":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/cybPE"          # 创业市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/cybPB"          # 创业市净率
+                elif block[0] == "BK06111":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/sz50-ttm-lyr"   # 上证50市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/sz50-pb"   # 上证50市净率
+                elif block[0] == "BK05001":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/hs300-ttm-lyr"  # 沪深300市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/hs300-pb"  # 沪深300市净率
+                elif block[0] == "BK07001":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/zz500-ttm-lyr"  # 中证500市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/zz500-pb"  # 中证500市净率
+                elif block[0] == "BK06121":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/sz180-ttm-lyr"  # 上证180市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/sz180-pb"  # 上证180市净率
+                elif block[0] == "BK07051":
+                    if col==6:
+                        url = "https://legulegu.com/stockdata/sz380-ttm-lyr"  # 上证380市盈率
+                    elif col==7:
+                        url = "https://legulegu.com/stockdata/sz380-pb"  # 上证380市净率
+                if (url):
+                    webbrowser.open(url)
         else: # 打开个股基本面/信息网页
             code = self.tickers.values[brow][0]
             openBrowser(code)
@@ -314,7 +354,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             webbrowser.open(url)
         elif self.code in code_list:
             row = code_list.index(self.code)
-            dialog = GuiSub(self.blocks.values[row], self.kNumber, parent=self)
+            dialog = GuiSub(self.blocks.values[row], self.para, parent=self)
             dialog.show()
         else: # 打开个股基本面/信息网页
             openBrowser(self.code)
@@ -325,7 +365,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.setupUi(self)
         self.block_code = block[0]
         self.block_name = block[1]
-        self.kNumber = para
+        self.block_pe = block[6]
+        self.block_pb = block[7]
+        self.para = para
         self.sys_init_block()
 
     def sys_init_block(self):
@@ -334,7 +376,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
             reader = csv.reader(csv_file)
             codes = [row[0] for row in reader]
         tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
-                                   dtype=str, encoding="utf-8", na_values='-').set_index(['code'])
+                                   dtype=str, encoding="utf-8").set_index(['code'])
+        ######## /////////////////////////// 加载数字化
         self.stickers = (tickers.loc[codes]).reset_index()
         data = list(self.stickers.iloc[0])
         # print(self.stickers)
@@ -347,8 +390,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tableView.setSortingEnabled(True)
 
         # 初始化GUI
-        self.setWindowTitle("{} {}".format(self.block_code,self.block_name))
-        self.model = PandasModel(self.stickers, parent=self.tableView, coloring=True)
+        self.setWindowTitle("{} {} PE{} PB{}".format(self.block_code,self.block_name,self.block_pe,self.block_pb))
+        self.model = PandasModel(self.stickers, parent=self.tableView)
         self.tableView.setModel(self.model)
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.tableView.setColumnWidth(1, 60)
@@ -359,7 +402,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tableView.setColumnWidth(11, 90)
         self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
         self.tableView.setColumnWidth(0, 60)
-        self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
+        self.scode = drawChart(self.graphicsView, data, self.para)
 
     def eventFilter(self, obj, event):
         if (obj == self.tableView):
@@ -378,7 +421,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
                     srow = self.model.getIndex()[row]
                     data = list(self.stickers.iloc[srow])
                     if (self.scode != data[0]):
-                        self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
+                        self.scode = drawChart(self.graphicsView, data, self.para)
         return False
 
     def sTableClicked(self, mi):
@@ -388,7 +431,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         srow = self.model.getIndex()[mi.row()]
         data = list(self.stickers.iloc[srow])
         if (self.scode != data[0]):
-            self.scode = drawChart(self.graphicsView, data, kNumber=self.kNumber)
+            self.scode = drawChart(self.graphicsView, data, self.para)
 
     def sTableDoubleClicked(self, mi):
         # 打开个股基本面/信息网页
