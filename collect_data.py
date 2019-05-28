@@ -834,11 +834,11 @@ class collect_data(object):
         try:
             para = read_parameter_ini()
             n_end = int(para.get('K_NUMBER', 0))
-            if (n_end > 32) or (n_end<=0):
-                n_end = 32
+            if (n_end > 64) or (n_end<=0):
+                n_end = 64
             ref_date = para.get("REF_DATE", "")
         except:
-            n_end = 32
+            n_end = 64
             ref_date = ""
 
         total = len(codes)
@@ -871,19 +871,22 @@ class collect_data(object):
                     l = 16
                 # print (l, index, found)
 
-                # 计算关键节点后, 大资金/成交量相对值
-                vol = df['vol3'].rolling(l).mean()
-                capital = df['main'].rolling(l).mean()
-                capital_rri = capital.values[-1]/vol.values[-1]
+                if (index < l):
+                    rri[code] = ["{}".format(active), "-","-"]
+                else:
+                    # 计算关键节点后, 大资金/成交量相对值
+                    vol = df['vol3'].rolling(l).mean()
+                    capital = df['main'].rolling(l).mean()
+                    capital_rri = capital.values[-1]/vol.values[-1]
 
-                # 计算关键节点后, 股价波动百分比
-                c = df['close'].values
-                idx = len(c) - l
-                price_rri = (c[-1]-c[idx])/c[idx]
-                # print (df[['close','date']])
-                # print (c[idx], c[-1])
+                    # 计算关键节点后, 股价波动百分比
+                    c = df['close'].values
+                    idx = len(c) - l
+                    price_rri = (c[-1]-c[idx])/c[idx]
+                    # print (df[['close','date']])
+                    # print (c[idx], c[-1])
 
-                rri[code] = ["{}".format(active), "{:.1f}".format(capital_rri*10), "{:.1f}".format(price_rri*100)]
+                    rri[code] = ["{}".format(active), "{:.1f}".format(capital_rri*10), "{:.1f}".format(price_rri*100)]
             except Exception as e:
                 self.rd["calculate_rri({})".format(code)] = e
                 print("calculate_rri({}):\t{}".format(code, e))

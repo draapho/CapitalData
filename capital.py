@@ -40,13 +40,13 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         menu.addAction(self.webPE)
         menu.addAction(self.webPB)
         menu.addSeparator()
+        menu.addAction(self.openFile)
+        menu.addAction(self.setParameter)
+        menu.addSeparator()
         menu.addAction(self.calculateRRI)
         menu.addAction(self.collectFunds)
         menu.addAction(self.collectSilence)
         menu.addAction(self.autoFix)
-        menu.addSeparator()
-        menu.addAction(self.openFile)
-        menu.addAction(self.setParameter)
         menu.addSeparator()
         menu.addAction(self.tickersCsv)
         menu.addAction(self.blocksCsv)
@@ -110,16 +110,13 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         completer.setFilterMode(Qt.MatchContains)
 
         # table 初始数据
-        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('资金异动', 'f'), ('资金强度', 'f'), ('股价波动', 'f'), ('排序', 'S'), ('平均市值', 'S'), ('净利润', 'S'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('个股', 'f')]),
-        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'],
-                                 dtype=str, encoding="utf-8")  # na_values='-'
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('强度', 'f'), ('股价', 'f'), ('排序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
+        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
         # print (self.blocks)
         dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('评分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
         self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
         # print (self.tickers)
         data = list(self.blocks.iloc[0])
-        ##//////////////////////////////////////////////////////// pandas 小数精度问题. 解决方法: pandas导入, pandas输出, tableview设置...
-        ## //////////////////////////// 板块加载数字化. 需要修改 tickers.csv
 
         # UI 初始化
         self.lineEditSticker.setCompleter(completer)
@@ -375,9 +372,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         with open("{}{}.csv".format(get_block_path(),self.block_code), 'r', encoding="utf-8") as csv_file:
             reader = csv.reader(csv_file)
             codes = [row[0] for row in reader]
-        tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', '市值', '利润', 'PE', 'PB', 'ROE', '板块'],
-                                   dtype=str, encoding="utf-8").set_index(['code'])
-        ######## /////////////////////////// 加载数字化
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('评分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
+        tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-').set_index(['code'])
         self.stickers = (tickers.loc[codes]).reset_index()
         data = list(self.stickers.iloc[0])
         # print(self.stickers)

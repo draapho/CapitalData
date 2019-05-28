@@ -38,6 +38,7 @@ def drawChart(graphicsView, data, para):
         quotes = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
         # quotes = pd.read_csv(file, header=None, engine='c', names=columns, dtype=dtype, na_values= '-')
         quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
+        quotes['c_pre'] = quotes['close'].shift()
         # print (quotes)
     except Exception as e:
         print("open {} file failed!".format(file))
@@ -62,8 +63,8 @@ def drawChart(graphicsView, data, para):
     y2Axis.setWidth(w=40)
     title = "{} <i>{}</i>".format(data[0][:-1], data[1])
     if (data[0].startswith("BK") or data[0].startswith("399") or data[0] == "0000011"):
-        title += "<br></br>PE{}".format(data[6])
-        title += " PB{}".format(data[7])
+        title += "<br></br>PE{:.1f}".format(data[6])
+        title += " PB{:.1f}".format(data[7])
     else:
         if (data[6]<30.0):     # 市盈率
             color = "#969696"
@@ -71,14 +72,14 @@ def drawChart(graphicsView, data, para):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += "<br></br><font color={}>PE{}</font>".format(color,data[6])
+        title += "<br></br><font color={}>PE{:.1f}</font>".format(color,data[6])
         if (data[7]<3.0):     # 市净率
             color = "#969696"
         elif (data[7]<6.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += " <font color={}>PB{}</font>".format(color,data[7])
+        title += " <font color={}>PB{:.1f}</font>".format(color,data[7])
     p1.setTitle(title)
     p2.hideAxis('bottom')
 
@@ -94,16 +95,22 @@ def drawChart(graphicsView, data, para):
     p1.setXLink(p2)  # 同步缩放
     p2.setXLink(p1)  # 同步缩放
 
-    # ///////////////////////////////////// 读取关键日期, 显示出来
-    # ////////////////////////////////////  资金异动全部标注出来.
-
     # 导入数据
-    item = KItem(quotes[['open', 'high', 'low', 'close']])
+    ref_date = para.get('REF_DATE', "") # 在K线图上标注出关键日期
+    ref_num = quotes[(quotes.date==ref_date)].index.tolist()
+    if (len(ref_num)):
+        ref_num = ref_num[0]
+    elif (p1Len >= 16):
+        ref_num = p1Len-16
+    else:
+        ref_num = -1
+
+    item = KItem(quotes[['open', 'high', 'low', 'close', 'c_pre']], ref_num)
     p1.addItem(item)
     day = quotes['close'].rolling(16).mean()  # 日均线
     p1.plot(day, pen="#ffffff")
 
-    item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close']])
+    item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close', 'c_pre']])
     p2.addItem(item)
     dayS = quotes['main'].rolling(16).mean()  # 短均线
     p2.plot(dayS, pen="#ffffff")
@@ -139,7 +146,7 @@ class PandasModel(QAbstractTableModel):
         if index.isValid():
             col = index.column()
             if role == Qt.DisplayRole:
-                return str(self._data.values[index.row()][col])
+                return self._data.values[index.row()][col]
             elif role == Qt.ForegroundRole:
                 if (col == 5) and (not self.isBlock):
                     data = self._data.values[index.row()][col]
@@ -171,11 +178,12 @@ class PandasModel(QAbstractTableModel):
 
 
 class KItem(pg.GraphicsObject):
-    def __init__(self, data):
+    def __init__(self, data, ref):
         pg.GraphicsObject.__init__(self)
 
         # 生成横轴的刻度名字
-        self.data = data  ## data must have fields: open, max, min, close
+        self.data = data  ## data must have fields: open, max, min, close, c_pre
+        self.ref = ref
         self.generatePicture()
 
     def generatePicture(self):
@@ -183,32 +191,50 @@ class KItem(pg.GraphicsObject):
         p = QPainter(self.picture)
         w = 1 / 3.
         last = None
-        for t, (open, max, min, close) in enumerate(self.data.values):
+        for t, (open, max, min, close, c_pre) in enumerate(self.data.values):
             if open > close:
                 p.setBrush(pg.mkBrush('g'))
                 p.setPen(pg.mkPen('g'))
+                if c_pre < close:
+                    p.setBrush(pg.mkBrush('r'))
+                    p.setPen(pg.mkPen('r'))
                 p.drawLine(QPointF(t, min), QPointF(t, max))
                 p.drawRect(QRectF(t - w, open, w * 2, close - open))
                 last = close
             elif open < close:
                 p.setBrush(pg.mkBrush('r'))
                 p.setPen(pg.mkPen('r'))
+                if c_pre > close:
+                    p.setBrush(pg.mkBrush('g'))
+                    p.setPen(pg.mkPen('g'))
                 p.drawLine(QPointF(t, min), QPointF(t, max))
                 p.drawRect(QRectF(t - w, open, w * 2, close - open))
                 last = close
             elif open == close:
-                # print (t, (open, max, min, close))
                 p.setBrush(pg.mkBrush('w'))
                 p.setPen(pg.mkPen('w'))
+                if c_pre > close:
+                    p.setBrush(pg.mkBrush('g'))
+                    p.setPen(pg.mkPen('g'))
+                elif c_pre < close:
+                    p.setBrush(pg.mkBrush('r'))
+                    p.setPen(pg.mkPen('r'))
                 if (min != max):
                     p.drawLine(QPointF(t, min), QPointF(t, max))
                 p.drawLine(QPointF(t - w, close), QPointF(t+w, close))
                 last = close
             elif last != None: # open or close is None
                 # print (t, (open, max, min, close))
+                p.setBrush(pg.mkBrush('w'))
+                p.setPen(pg.mkPen('w'))
+                p.drawLine(QPointF(t - w, last), QPointF(t+w, last))
+            if t == self.ref:
+                # p.setBrush(Qt.NoBrush)
                 p.setBrush(pg.mkBrush('y'))
                 p.setPen(pg.mkPen('y'))
-                p.drawLine(QPointF(t - w, last), QPointF(t+w, last))
+                p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
+                # p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
+                p.drawLine(QPointF(t, min), QPointF(t, max))
         p.end()
 
     def paint(self, p, *args):
@@ -223,7 +249,7 @@ class VItem(pg.GraphicsObject):
         pg.GraphicsObject.__init__(self)
 
         # 生成横轴的刻度名字
-        self.data = data  ## data must have fields: vol2, main, xlarge, middle, open, close
+        self.data = data  ## data must have fields: vol3, main, xlarge, middle, open, close, c_pre
         self.generatePicture()
 
     def generatePicture(self):
@@ -231,7 +257,7 @@ class VItem(pg.GraphicsObject):
         p = QPainter(self.picture)
         w = 1 / 3.
         # about color: https://doc.qt.io/archives/qtjambi-4.5.2_01/com/trolltech/qt/core/Qt.GlobalColor.html
-        for t, (v, main, x, m, o, c) in enumerate(self.data.values):
+        for t, (vol, main, x, m, o, c, cp) in enumerate(self.data.values):
             p.setPen(pg.mkPen("#ffff00"))
             p.setBrush(pg.mkBrush("#ffff00"))   # yellow, 中等资金
             p.drawRect(QRectF(t, 0, w, m))
@@ -253,11 +279,19 @@ class VItem(pg.GraphicsObject):
             # 小额资金 + 中等资金 + 大额资金 + 超大资金 = 0
 
             p.setBrush(Qt.NoBrush)
-            if (c-o < 0) and (main > 0):
-                p.setPen(pg.mkPen('r'))
-            else:
-                p.setPen(pg.mkPen("#a0a0a4"))
-            p.drawRect(QRectF(t-w, -v, 2*w, 2*v))   # 百分比化的交易量. 极值为资金流占比达到10%
+
+            v = main / vol  # 1000 * 大资金流入 / 总交易额
+            f = (c-o) / o  # 当日波动幅度
+            pp = (c-cp) / cp  # 涨幅
+            p.setPen(pg.mkPen("#a0a0a4"))
+            if (main > 0):
+                if ((v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.2) or \
+                    (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.2)):
+                    # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
+                    p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
+                elif (v > 0.5):
+                    p.setPen(pg.mkPen('#FF6600'))
+            p.drawRect(QRectF(t-w, -vol, 2*w, 2*vol))   # 百分比化的交易量. 极值为资金流占比达到10%
         p.end()
 
     def paint(self, p, *args):
