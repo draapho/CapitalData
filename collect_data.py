@@ -848,45 +848,56 @@ class collect_data(object):
                     print("===> {}/{}\tcalculate_rri({})".format(i, total, code))
                 file = "{}{}.csv".format(get_data_path(), code)
                 active = 0
+                inflow = 0
                 found = 0
                 df = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
                 df['vol3'] = df['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
                 df['c_pre'] = df['close'].shift()
 
+                # 计算设定的关键日期相对位置
+                df_len = df.shape[0]
+                ref_idx = df[(df.date==ref_date)].index.tolist()
+                if (len(ref_idx)):
+                    ref_idx = ref_idx[0]
+                elif (df_len >= 16):
+                    ref_idx = df_len-16
+                else:
+                    ref_idx = -1
                 # 计算大资金异动次数：大资金放量0.5%以上, 逆势流入(当日下跌, 收盘下跌)
                 for index, row in df.iterrows():
                     # print (index, row)
                     v = row['main']/row['vol3']                     # 1000 * 大资金流入 / 总交易额
                     f = (row['close']-row['open'])/row['open']      # 当日波动幅度
                     p = (row['close']-row['c_pre'])/row['c_pre']    # 涨幅
-                    if (row['main'] > 0) and \
-                        ((v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.2) \
-                                 or (v>0.3 and p<0.01) or (-p*v*100 > 0.2)):
+                    if (row['main'] > 0):
                         # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
-                        active += 1
-                    if ref_date == str(row['date']):
-                        found = index
-                l = index-found+1
-                if (found == 0) and (l>16):
-                    l = 16
-                # print (l, index, found)
-
-                if (index < l):
-                    rri[code] = ["{}".format(active), "-","-"]
+                        if ((v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.1) \
+                                 or (v>0.3 and p<0.01) or (-p*v*100 > 0.1)):
+                            active += 1
+                        # 计算关键节点后, 资金流入次数. 根据股价波动设置不同的权重
+                        if (index >= ref_idx) or (ref_idx < 0):
+                            if (f<-1.0):                # 下跌
+                                inflow += v * -f
+                            elif (f<1.0):               # 波动
+                                inflow += v
+                            else:                       # 上涨
+                                inflow += v / f
+                if (ref_idx < 0):
+                    rri[code] = ["{}".format(active), "{:.1f}".format(inflow), "-"]
                 else:
-                    # 计算关键节点后, 大资金/成交量相对值
-                    vol = df['vol3'].rolling(l).mean()
-                    capital = df['main'].rolling(l).mean()
-                    capital_rri = capital.values[-1]/vol.values[-1]
+                    # # 计算关键节点后, 资金和成交量占比
+                    # vol = df['vol3'].rolling(l).mean()
+                    # capital = df['main'].rolling(l).mean()
+                    # capital_rri = capital.values[-1]/vol.values[-1]
+                    # # 取消了此指标, 用净流入权重次数替代. "{:.1f}".format(capital_rri*10)
 
                     # 计算关键节点后, 股价波动百分比
                     c = df['close'].values
-                    idx = len(c) - l
-                    price_rri = (c[-1]-c[idx])/c[idx]
+                    price_rri = (c[-1]-c[ref_idx])/c[ref_idx]
                     # print (df[['close','date']])
-                    # print (c[idx], c[-1])
+                    # print (c[ref_idx], c[-1])
 
-                    rri[code] = ["{}".format(active), "{:.1f}".format(capital_rri*10), "{:.1f}".format(price_rri*100)]
+                    rri[code] = ["{}".format(active), "{:.1f}".format(inflow), "{:.1f}".format(price_rri*100)]
             except Exception as e:
                 self.rd["calculate_rri({})".format(code)] = e
                 print("calculate_rri({}):\t{}".format(code, e))

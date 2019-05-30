@@ -108,6 +108,7 @@ class Ui_MainWindow(object):
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.tableView.setObjectName("tableView")
         self.tableView.horizontalHeader().setDefaultSectionSize(40)
+        self.tableView.horizontalHeader().setMinimumSectionSize(5)
         self.gridLayout.addWidget(self.tableView, 4, 0, 1, 13)
         self.buttonMore = QtWidgets.QPushButton(self.widget_2)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)

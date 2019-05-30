@@ -8,6 +8,8 @@ import pyqtgraph as pg
 def openBrowser(code):
     url = 'http://data.eastmoney.com/stockcalendar/{}.html'.format(code[:-1]) # 个股日历
     webbrowser.open(url)
+    url ='http://data.eastmoney.com/bbsj/yjbb/{}.html'.format(code[:-1]) # 财务报表
+    webbrowser.open(url)
     # shsz = "SH" if (code[-1]==1) else "SZ"
     # url = 'http://f10.eastmoney.com/f10_v2/OperationsRequired.aspx?code={}{}#'.format(shsz, code[:-1]) # F10资料, 很多个股没有这个页面
     # webbrowser.open(url)
@@ -63,30 +65,46 @@ def drawChart(graphicsView, data, para):
     y2Axis.setWidth(w=40)
     title = "{} <i>{}</i>".format(data[0][:-1], data[1])
     if (data[0].startswith("BK") or data[0].startswith("399") or data[0] == "0000011"):
-        title += "<br></br>PE{:.1f}".format(data[6])
-        title += " PB{:.1f}".format(data[7])
+        title += "<br></br>PE{:.1f}".format(data[7])
+        title += " PB{:.1f}".format(data[8])
     else:
-        if (data[6]<30.0):     # 市盈率
+        if (data[7]<30.0):     # 市盈率
             color = "#969696"
-        elif (data[6]<60.0):
+        elif (data[7]<60.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += "<br></br><font color={}>PE{:.1f}</font>".format(color,data[6])
-        if (data[7]<3.0):     # 市净率
+        title += "<br></br><font color={}>PE{:.1f}</font>".format(color,data[7])
+        if (data[8]<3.0):     # 市净率
             color = "#969696"
-        elif (data[7]<6.0):
+        elif (data[8]<6.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += " <font color={}>PB{:.1f}</font>".format(color,data[7])
+        title += " <font color={}>PB{:.1f}</font>".format(color,data[8])
+        # try:
+        value = data[11].split('/')[1].strip()
+        if ('万亿' in value or '亿亿' in value):
+            color = "#969696"
+        elif ('亿' in value):
+            try:
+                if float(value[:-1])<100.0:         # <100亿市值, 标注出来
+                    color = "#FF00FF"
+                else:
+                    color = "#969696"
+            except:
+                color = "#FF00FF"
+        else:
+            color = "#FF00FF"
+        title += " <font color={}>{}</font>".format(color,value)
+        # except
     p1.setTitle(title)
     p2.hideAxis('bottom')
 
     p1.setMouseEnabled(x=True, y=False)  # 鼠标滚轮仅X轴缩放
     p2.setMouseEnabled(x=True, y=False)
     # 设置缩放
-    p1Len = len(quotes)
+    p1Len = quotes.shape[0]
     p1.setRange(yRange=[quotes[['low']].min()['low'], quotes[['high']].max()['high']])
     p1.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
     p2.setLimits(minXRange=1, maxXRange=p1Len*1.25, xMin=-p1Len/4, xMax=p1Len*1.25)
@@ -97,20 +115,20 @@ def drawChart(graphicsView, data, para):
 
     # 导入数据
     ref_date = para.get('REF_DATE', "") # 在K线图上标注出关键日期
-    ref_num = quotes[(quotes.date==ref_date)].index.tolist()
-    if (len(ref_num)):
-        ref_num = ref_num[0]
+    ref_idx = quotes[(quotes.date==ref_date)].index.tolist()
+    if (len(ref_idx)):
+        ref_idx = ref_idx[0]
     elif (p1Len >= 16):
-        ref_num = p1Len-16
+        ref_idx = p1Len-16
     else:
-        ref_num = -1
+        ref_idx = -1
 
-    item = KItem(quotes[['open', 'high', 'low', 'close', 'c_pre']], ref_num)
+    item = KItem(quotes[['open', 'high', 'low', 'close', 'c_pre']], ref_idx)
     p1.addItem(item)
     day = quotes['close'].rolling(16).mean()  # 日均线
     p1.plot(day, pen="#ffffff")
 
-    item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close', 'c_pre']])
+    item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close', 'c_pre']], ref_idx)
     p2.addItem(item)
     dayS = quotes['main'].rolling(16).mean()  # 短均线
     p2.plot(dayS, pen="#ffffff")
@@ -128,19 +146,20 @@ class PandasModel(QAbstractTableModel):
     """
     def __init__(self, data, parent=None, isBlock=False):
         QAbstractTableModel.__init__(self, parent)
-        self._data = data
+        self.data = data
+        self._data = data  # ////////////////////////just need one...........
         self.isBlock=isBlock
-        self.index = list(self._data.index.values)
+        self.idx = list(self._data.index.values)
         self.blist = ["0000011","3990012","3990052","3990062","BK06111","BK05001","BK07011","BK06121","BK07051"] # 有web链接的行
 
 
     def rowCount(self, parent=None):
-        return len(self._data.values)
-        # return self._data.shape[0]
+        # return len(self._data.values)
+        return self._data.shape[0]
 
     def columnCount(self, parent=None):
-        return self._data.columns.size
-        # return self._data.shape[1]
+        # return self._data.columns.size
+        return self._data.shape[1]
 
     def data(self, index, role=Qt.DisplayRole):
         if index.isValid():
@@ -154,10 +173,14 @@ class PandasModel(QAbstractTableModel):
                         return QColor("#F53131")
                     elif (data<70):
                         return QColor("#D63DD6")
-                if ((col==6) or (col==7)) and self.isBlock:
+                if ((col==7) or (col==8)) and self.isBlock:
                     data = self._data.values[index.row()][0]
                     if data in self.blist:
                         return QColor("#1A0DAB")
+            elif role == Qt.BackgroundRole:
+                data = self._data.values[index.row()][6]
+                if data == "|":
+                    return QColor("#D8EBFC")
         return QVariant()
 
     def headerData(self, col, orientation, role):
@@ -168,13 +191,36 @@ class PandasModel(QAbstractTableModel):
     def sort(self,column, order):
         self.layoutAboutToBeChanged.emit()
         self._data = self._data.sort_values(by=list(self._data)[column], ascending=False if order else True)
-        self.index = list(self._data.index.values)
+        self.idx = list(self._data.index.values)
         self.layoutChanged.emit()
 
     def getIndex(self):
-        # print(row, self.index)
-        # print(self.index[row])
-        return self.index
+        # print(row, self.idx)
+        # print(self.idx[row])
+        return self.idx
+
+    def setData(self, index, value=True, role=Qt.EditRole):
+        if role == Qt.EditRole:
+            row = index.row()
+            brow = self.idx[row]
+            if (value): #///////////////toggle
+                self.data.loc[[brow], ['|']] = '|'
+                self._data.loc[[row], ['|']] = '|'
+            else:                                       # /////////////////////////////选择.
+                self.data.loc[[brow], ['|']] = ''
+                self._data.loc[[row], ['|']] = ''
+            self.dataChanged.emit(index, index)
+            return True  # This is what I changed in the code
+        return False
+
+    # def selected(self, row, selected=True):
+    #     if row < self.rowCount():
+    #
+    #         self.data.set_value(brow，'|'，'|')
+    #         self._data.set_value(row，'|'，'|')
+    #         idx= self.index(start_row, start_column, start_parent)
+    #         self.dataChanged.emit(idx, idx)
+    #     return False
 
 
 class KItem(pg.GraphicsObject):
@@ -195,18 +241,18 @@ class KItem(pg.GraphicsObject):
             if open > close:
                 p.setBrush(pg.mkBrush('g'))
                 p.setPen(pg.mkPen('g'))
-                if c_pre < close:
-                    p.setBrush(pg.mkBrush('r'))
-                    p.setPen(pg.mkPen('r'))
+                # if c_pre < close:
+                #     p.setBrush(pg.mkBrush('r'))
+                #     p.setPen(pg.mkPen('r'))
                 p.drawLine(QPointF(t, min), QPointF(t, max))
                 p.drawRect(QRectF(t - w, open, w * 2, close - open))
                 last = close
             elif open < close:
                 p.setBrush(pg.mkBrush('r'))
                 p.setPen(pg.mkPen('r'))
-                if c_pre > close:
-                    p.setBrush(pg.mkBrush('g'))
-                    p.setPen(pg.mkPen('g'))
+                # if c_pre > close:
+                #     p.setBrush(pg.mkBrush('g'))
+                #     p.setPen(pg.mkPen('g'))
                 p.drawLine(QPointF(t, min), QPointF(t, max))
                 p.drawRect(QRectF(t - w, open, w * 2, close - open))
                 last = close
@@ -245,11 +291,12 @@ class KItem(pg.GraphicsObject):
 
 
 class VItem(pg.GraphicsObject):
-    def __init__(self, data):
+    def __init__(self, data, ref):
         pg.GraphicsObject.__init__(self)
 
         # 生成横轴的刻度名字
         self.data = data  ## data must have fields: vol3, main, xlarge, middle, open, close, c_pre
+        self.ref = ref
         self.generatePicture()
 
     def generatePicture(self):
@@ -285,11 +332,13 @@ class VItem(pg.GraphicsObject):
             pp = (c-cp) / cp  # 涨幅
             p.setPen(pg.mkPen("#a0a0a4"))
             if (main > 0):
-                if ((v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.2) or \
-                    (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.2)):
+                if ((v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1) or \
+                    (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.1)):
                     # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
                     p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
                 elif (v > 0.5):
+                    p.setPen(pg.mkPen('#FF6600'))
+                elif (t > self.ref):
                     p.setPen(pg.mkPen('#FF6600'))
             p.drawRect(QRectF(t-w, -vol, 2*w, 2*vol))   # 百分比化的交易量. 极值为资金流占比达到10%
         p.end()

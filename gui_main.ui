@@ -217,6 +217,9 @@
           <attribute name="horizontalHeaderDefaultSectionSize">
            <number>40</number>
           </attribute>
+          <attribute name="horizontalHeaderMinimumSectionSize">
+           <number>5</number>
+          </attribute>
          </widget>
         </item>
         <item row="2" column="1">

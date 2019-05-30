@@ -5,7 +5,8 @@ import os
 import sys
 import re
 import csv
-import random
+import datetime
+import winreg
 import pandas as pd
 
 ########### file / path ##########
@@ -41,6 +42,10 @@ def get_parameter_file():
 
 def get_tmp_file():
     return get_para_path() + "tmp"
+
+def get_paste_file():
+    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders')
+    return winreg.QueryValueEx(key, "Desktop")[0] + "\\paste{}.txt".format(datetime.datetime.now().strftime("%m%d"))
 
 def read_parameter_ini():
     try:

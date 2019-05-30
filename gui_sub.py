@@ -62,6 +62,7 @@ class Ui_Dialog(object):
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.tableView.setObjectName("tableView")
         self.tableView.horizontalHeader().setDefaultSectionSize(40)
+        self.tableView.horizontalHeader().setMinimumSectionSize(5)
         self.gridLayout.addWidget(self.tableView, 0, 0, 1, 2)
         self.horizontalLayout.addWidget(self.splitter)
 

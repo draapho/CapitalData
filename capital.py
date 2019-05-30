@@ -110,11 +110,17 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         completer.setFilterMode(Qt.MatchContains)
 
         # table 初始数据
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('强度', 'f'), ('股价', 'f'), ('排序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
-        self.blocks = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '排序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('强度', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
+        df = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
+        col_name = df.columns.tolist()
+        col_name.insert(6, '|')
+        self.blocks = df.reindex(columns=col_name, fill_value="")
         # print (self.blocks)
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('评分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
-        self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
+        df = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
+        col_name = df.columns.tolist()
+        col_name.insert(6, '|')
+        self.tickers = df.reindex(columns=col_name, fill_value="")
         # print (self.tickers)
         data = list(self.blocks.iloc[0])
 
@@ -143,11 +149,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tableView.setModel(self.model)
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能非常差.
         self.tableView.setColumnWidth(1, 60)
-        self.tableView.setColumnWidth(5, 30)
-        self.tableView.setColumnWidth(6, 45)
-        self.tableView.setColumnWidth(9, 90)
+        self.tableView.setColumnWidth(2, 35)
+        self.tableView.setColumnWidth(3, 35)
+        self.tableView.setColumnWidth(5, 26)
+        self.tableView.setColumnWidth(6, 10)
+        self.tableView.setColumnWidth(7, 45)
         self.tableView.setColumnWidth(10, 90)
         self.tableView.setColumnWidth(11, 90)
+        self.tableView.setColumnWidth(12, 90)
         self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
         self.tableView.setColumnWidth(0, 60)
 
@@ -243,6 +252,10 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (obj == self.tableView):
             if (event.type() == QEvent.KeyPress):
                 row = -10
+                if (event.key() == Qt.Key_Enter):
+                    row = self.tableView.selectionModel().currentIndex().row()
+                    # //////////////////  # /////////////////////另外把超大资金也算到异动里面, 加上权重
+                    # //////////// 关键节点后面加上天数, 便于复盘学习!
                 if (event.key() == Qt.Key_Up):
                     row = self.tableView.selectionModel().currentIndex().row() - 1
                 if (event.key() == Qt.Key_Down):
@@ -286,60 +299,70 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (self.isTableBlocks):
             block = self.blocks.values[brow]
             if block[0].startswith("BK") and (col < 6):
-                dialog = GuiSub(block, self.para, parent=self)
+                dialog = GuiSub(self.tickers, block, self.para, parent=self)
                 dialog.show()
             elif '-' not in block[0]:
                 url = None
                 if block[0] == '0000011':
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/shanghaiPE"     # 上证市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/shanghaiPB"     # 上证市净率
                 elif block[0] == "3990012":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/shenzhenPE"     # 深证市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/shenzhenPB"     # 深证市净率
                 elif block[0] == "3990052":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/zxbPE"          # 中小市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/zxbPB"          # 中小市净率
                 elif block[0] == "3990062":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/cybPE"          # 创业市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/cybPB"          # 创业市净率
                 elif block[0] == "BK06111":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/sz50-ttm-lyr"   # 上证50市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/sz50-pb"   # 上证50市净率
                 elif block[0] == "BK05001":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/hs300-ttm-lyr"  # 沪深300市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/hs300-pb"  # 沪深300市净率
                 elif block[0] == "BK07001":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/zz500-ttm-lyr"  # 中证500市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/zz500-pb"  # 中证500市净率
                 elif block[0] == "BK06121":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/sz180-ttm-lyr"  # 上证180市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/sz180-pb"  # 上证180市净率
                 elif block[0] == "BK07051":
-                    if col==6:
+                    if col==7:
                         url = "https://legulegu.com/stockdata/sz380-ttm-lyr"  # 上证380市盈率
-                    elif col==7:
+                    elif col==8:
                         url = "https://legulegu.com/stockdata/sz380-pb"  # 上证380市净率
                 if (url):
                     webbrowser.open(url)
         else: # 打开个股基本面/信息网页
-            code = self.tickers.values[brow][0]
-            openBrowser(code)
+            sticker = self.tickers.values[brow]
+            openBrowser(sticker[0])
+            # if col >= 5:
+            #     openBrowser(sticker[0])
+            # else:
+            #     code = sticker[0][:-1]
+            #     name = sticker[1]
+            #     # print (code, name, get_paste_file())
+            #     # with open(get_paste_file(), 'a+') as f:
+            #     #     f.write("{}\t{}\n".format(code, name))
+            #     # # for j in range(11):
+            #     self.model.setData(self.model.index(mi.row(), 6))# ////////////////////////////////
 
     def moreClicked(self):
         code_list = list(self.blocks.code)
@@ -351,15 +374,16 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             webbrowser.open(url)
         elif self.code in code_list:
             row = code_list.index(self.code)
-            dialog = GuiSub(self.blocks.values[row], self.para, parent=self)
+            dialog = GuiSub(self.tickers, self.blocks.values[row], self.para, parent=self)
             dialog.show()
         else: # 打开个股基本面/信息网页
             openBrowser(self.code)
 
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
-    def __init__(self, block, para={}, parent=None):
+    def __init__(self, tickers, block, para={}, parent=None):
         super(self.__class__, self).__init__(parent)
         self.setupUi(self)
+        self.tickers = tickers
         self.block_code = block[0]
         self.block_name = block[1]
         self.block_pe = block[6]
@@ -372,9 +396,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         with open("{}{}.csv".format(get_block_path(),self.block_code), 'r', encoding="utf-8") as csv_file:
             reader = csv.reader(csv_file)
             codes = [row[0] for row in reader]
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('评分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
-        tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '评分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-').set_index(['code'])
-        self.stickers = (tickers.loc[codes]).reset_index()
+        # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
+        # self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-').set_index(['code'])
+        self.stickers = (self.tickers.set_index(['code']).loc[codes]).reset_index()
         data = list(self.stickers.iloc[0])
         # print(self.stickers)
 
@@ -391,11 +415,14 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tableView.setModel(self.model)
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.tableView.setColumnWidth(1, 60)
-        self.tableView.setColumnWidth(5, 30)
-        self.tableView.setColumnWidth(6, 45)
-        self.tableView.setColumnWidth(9, 90)
+        self.tableView.setColumnWidth(2, 35)
+        self.tableView.setColumnWidth(3, 35)
+        self.tableView.setColumnWidth(5, 26)
+        self.tableView.setColumnWidth(6, 10)
+        self.tableView.setColumnWidth(7, 45)
         self.tableView.setColumnWidth(10, 90)
         self.tableView.setColumnWidth(11, 90)
+        self.tableView.setColumnWidth(12, 90)
         self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
         self.tableView.setColumnWidth(0, 60)
         self.scode = drawChart(self.graphicsView, data, self.para)
