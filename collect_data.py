@@ -406,7 +406,11 @@ class collect_data(object):
             return None
 
     def get_block_fund(self):
-        ## /////////////////////////////////////////
+
+        # //////////// 关键节点后面加上天数, 便于复盘学习!
+
+
+        ## ///////////////////////////////
         ## 通过  get_code_fund  获取的信息值是有问题的, 肯定不是最新值, 也不知道是否更新. 但是评分系统只有那里有, 以后可以改名为 get_score_fund
         ## 市盈率, 市净率 == 指标, 东方财富网是每天定时更新的, 而且搜集起来很方便:
         ## 指数信息: http://data.eastmoney.com/gzfx/scgk.html,  从指数信息里能直接获得日期数据
@@ -415,7 +419,7 @@ class collect_data(object):
         ## 等有空了, PB PE 从这里更新吧...
         ## 另外, 个股的基本面信息找找看有没有比较直观的, 类似于万得股票的... 尤其是净利润...
         ## 以上, 等有空了再弄吧, 目前的先告一段落
-        ## ///////////////////////////////////////
+        ## /////////////////////////////
 
         # 获取板块代码. 网址: "http://data.eastmoney.com/gzfx/hylist.html"
         # 板块列表:   "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM&token=894050c76af8597a853f5b408b759f5d&st=GGCount&sr=-1&p=1&ps=50&js=var%20EbEHPgdh={pages:(tp),data:(x),font:(font)}&filter=(TDATE=%272019-05-24%27)&rt=51964161"
@@ -882,6 +886,11 @@ class collect_data(object):
                                 inflow += v
                             else:                       # 上涨
                                 inflow += v / f
+                            if (row['xlarge'] < 0):     # 扣掉超大流出的部分
+                                inflow += (v+row['xlarge']/row['vol3'])
+                    elif (row['xlarge'] > 0):           # 超大流入, 但大流出更多
+                        if (index >= ref_idx) or (ref_idx < 0):
+                            inflow += row['xlarge']/row['vol3']
                 if (ref_idx < 0):
                     rri[code] = ["{}".format(active), "{:.1f}".format(inflow), "-"]
                 else:

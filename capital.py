@@ -4,6 +4,7 @@ import subprocess
 import webbrowser
 import numpy as np
 import pandas as pd
+import pyperclip
 from ast import literal_eval
 from gui_misc import *
 from PyQt5.QtWidgets import *
@@ -18,6 +19,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     def sys_init(self):
         # 工具按钮
+        self.copySelected = QAction('复制已选个股', self)
+        self.setParameter = QAction('设置 parameter.ini', self)
+        self.openFile = QAction('打开文件夹', self)
         self.webM1M2 = QAction('M1M2走势', self)
         self.webPrice = QAction('平均股价', self)
         self.webPosition = QAction('平均持仓', self)
@@ -27,21 +31,20 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.collectFunds = QAction('Run get_all_funds', self)
         self.autoFix = QAction('Fix based report.txt', self)
         self.collectSilence = QAction('Run collect_silence', self)
-        self.openFile = QAction('Open _para folder', self)
-        self.setParameter = QAction('Open parameter.ini', self)
         self.tickersCsv = QAction('Get tickers_dl.csv', self)
         self.blocksCsv = QAction('Get blocks_dl.csv', self)
         self.blocksFolder = QAction('Get tickers in blocks', self)
 
         menu = QMenu(self)
+        menu.addAction(self.copySelected)
+        menu.addAction(self.setParameter)
+        menu.addAction(self.openFile)
+        menu.addSeparator()
         menu.addAction(self.webM1M2)
         menu.addAction(self.webPrice)
         menu.addAction(self.webPosition)
         menu.addAction(self.webPE)
         menu.addAction(self.webPB)
-        menu.addSeparator()
-        menu.addAction(self.openFile)
-        menu.addAction(self.setParameter)
         menu.addSeparator()
         menu.addAction(self.calculateRRI)
         menu.addAction(self.collectFunds)
@@ -53,6 +56,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         menu.addAction(self.blocksFolder)
         self.toolButton.setMenu(menu)
 
+        self.copySelected.triggered.connect(self.tools)
         self.webM1M2.triggered.connect(self.tools)
         self.webPrice.triggered.connect(self.tools)
         self.webPosition.triggered.connect(self.tools)
@@ -113,14 +117,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('强度', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
         df = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
         col_name = df.columns.tolist()
-        col_name.insert(6, '|')
-        self.blocks = df.reindex(columns=col_name, fill_value="")
+        col_name.insert(l2i('|'), '|')
+        self.blocks = df.reindex(columns=col_name, fill_value=".")
         # print (self.blocks)
         dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
         df = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
         col_name = df.columns.tolist()
-        col_name.insert(6, '|')
-        self.tickers = df.reindex(columns=col_name, fill_value="")
+        col_name.insert(l2i('|'), '|')
+        self.tickers = df.reindex(columns=col_name, fill_value=".")
         # print (self.tickers)
         data = list(self.blocks.iloc[0])
 
@@ -148,17 +152,18 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             self.model = PandasModel(self.tickers, parent=self.tableView)
         self.tableView.setModel(self.model)
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能非常差.
-        self.tableView.setColumnWidth(1, 60)
-        self.tableView.setColumnWidth(2, 35)
-        self.tableView.setColumnWidth(3, 35)
-        self.tableView.setColumnWidth(5, 26)
-        self.tableView.setColumnWidth(6, 10)
-        self.tableView.setColumnWidth(7, 45)
-        self.tableView.setColumnWidth(10, 90)
-        self.tableView.setColumnWidth(11, 90)
-        self.tableView.setColumnWidth(12, 90)
-        self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
-        self.tableView.setColumnWidth(0, 60)
+        self.tableView.setColumnWidth(l2i('code'), 60)
+        self.tableView.setColumnWidth(l2i('name'), 60)
+        self.tableView.setColumnWidth(l2i('异动'), 35)
+        self.tableView.setColumnWidth(l2i('资金'), 35)
+        self.tableView.setColumnWidth(l2i('序'), 26)
+        self.tableView.setColumnWidth(l2i('|'), 10)
+        self.tableView.setColumnWidth(l2i('PE'), 45)
+        self.tableView.setColumnWidth(l2i('利润'), 90)
+        self.tableView.setColumnWidth(l2i('市值'), 90)
+        self.tableView.setColumnWidth(l2i('个股'), 90)
+        # self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
+        # self.tableView.setColumnWidth(l2i('code'), 60)
 
     def codeChoosed(self, lineEdit=False):
         text = self.lineEditSticker.text()
@@ -233,6 +238,19 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             subprocess.call('python collect_data.py "blocks_dl_csv"', shell=False)
         elif self.sender() == self.blocksFolder:
             subprocess.call('python collect_data.py "blocks_folder"', shell=False)
+        elif self.sender() == self.copySelected:
+            rowList = self.tickers[self.tickers['|'] == '!'].index.tolist()
+            df = self.tickers.loc[rowList][['name', 'code']]
+            dflist = list(df.code)
+            if len(dflist):
+                for i, l in enumerate(dflist):
+                    dflist[i] = l[:-1]
+                dflist.extend(list(df.name))
+                try:
+                    # 保存到剪切板
+                    pyperclip.copy(" ".join(dflist))
+                except Exception as e:
+                    print (e)
 
     def completerActivated(self):
         self.codeChoosed(lineEdit=True)
@@ -252,20 +270,19 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         if (obj == self.tableView):
             if (event.type() == QEvent.KeyPress):
                 row = -10
-                if (event.key() == Qt.Key_Enter):
-                    row = self.tableView.selectionModel().currentIndex().row()
-                    # //////////////////  # /////////////////////另外把超大资金也算到异动里面, 加上权重
-                    # //////////// 关键节点后面加上天数, 便于复盘学习!
+                # if (event.key() == Qt.Key_Enter):     # 无法检测普通按键
+                #     row = self.tableView.selectionModel().currentIndex().row()
+                #     self.model.setData(self.model.index(row, l2i('|')))
                 if (event.key() == Qt.Key_Up):
                     row = self.tableView.selectionModel().currentIndex().row() - 1
                 if (event.key() == Qt.Key_Down):
                     row = self.tableView.selectionModel().currentIndex().row() + 1
                 if (row >= -1):
                     column = self.tableView.selectionModel().currentIndex().column()
-                    if (column > 1):
-                        column = 1
+                    if (column > l2i('name')):
+                        column = l2i('name')
                     if (row < 0):
-                        row=0
+                        row = 0
                     if (self.isTableBlocks):
                         if (row >= len(self.blocks)):
                             row -= 1
@@ -282,8 +299,8 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
     def tableClicked(self, mi):
         row = mi.row()
         column = mi.column()
-        if (column > 1):
-            column = 1
+        if (column > l2i('name')):
+            column = l2i('name')
         # print (row, column)
         brow = self.model.getIndex()[row]
         if (self.isTableBlocks):
@@ -294,75 +311,77 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.codeChoosed()
 
     def tableDoubleClicked(self, mi):
-        brow = self.model.getIndex()[mi.row()]
+        row = mi.row()
         col = mi.column()
+        brow = self.model.getIndex()[row]
         if (self.isTableBlocks):
             block = self.blocks.values[brow]
-            if block[0].startswith("BK") and (col < 6):
-                dialog = GuiSub(self.tickers, block, self.para, parent=self)
-                dialog.show()
-            elif '-' not in block[0]:
+            if '-' in block[0]:
+                return
+            if col < l2i('|') or col == l2i('个股'):
+                if block[0].startswith("BK"):
+                    dialog = GuiSub(self.tickers, block, self.para, parent=self)
+                    dialog.show()
+                # else:
+                #     url = 'https://legulegu.com/stockdata/m1m2'  # M1M2供应量
+                #     webbrowser.open(url)
+            elif col > l2i('|'):
                 url = None
                 if block[0] == '0000011':
-                    if col==7:
-                        url = "https://legulegu.com/stockdata/shanghaiPE"     # 上证市盈率
-                    elif col==8:
-                        url = "https://legulegu.com/stockdata/shanghaiPB"     # 上证市净率
+                    if col == l2i('PE'):
+                        url = "https://legulegu.com/stockdata/shanghaiPE"  # 上证市盈率
+                    elif col == l2i('PB'):
+                        url = "https://legulegu.com/stockdata/shanghaiPB"  # 上证市净率
                 elif block[0] == "3990012":
-                    if col==7:
-                        url = "https://legulegu.com/stockdata/shenzhenPE"     # 深证市盈率
-                    elif col==8:
-                        url = "https://legulegu.com/stockdata/shenzhenPB"     # 深证市净率
+                    if col == l2i('PE'):
+                        url = "https://legulegu.com/stockdata/shenzhenPE"  # 深证市盈率
+                    elif col == l2i('PB'):
+                        url = "https://legulegu.com/stockdata/shenzhenPB"  # 深证市净率
                 elif block[0] == "3990052":
-                    if col==7:
-                        url = "https://legulegu.com/stockdata/zxbPE"          # 中小市盈率
-                    elif col==8:
-                        url = "https://legulegu.com/stockdata/zxbPB"          # 中小市净率
+                    if col == l2i('PE'):
+                        url = "https://legulegu.com/stockdata/zxbPE"  # 中小市盈率
+                    elif col == l2i('PB'):
+                        url = "https://legulegu.com/stockdata/zxbPB"  # 中小市净率
                 elif block[0] == "3990062":
-                    if col==7:
-                        url = "https://legulegu.com/stockdata/cybPE"          # 创业市盈率
-                    elif col==8:
-                        url = "https://legulegu.com/stockdata/cybPB"          # 创业市净率
+                    if col == l2i('PE'):
+                        url = "https://legulegu.com/stockdata/cybPE"  # 创业市盈率
+                    elif col == l2i('PB'):
+                        url = "https://legulegu.com/stockdata/cybPB"  # 创业市净率
                 elif block[0] == "BK06111":
-                    if col==7:
-                        url = "https://legulegu.com/stockdata/sz50-ttm-lyr"   # 上证50市盈率
-                    elif col==8:
-                        url = "https://legulegu.com/stockdata/sz50-pb"   # 上证50市净率
+                    if col == l2i('PE'):
+                        url = "https://legulegu.com/stockdata/sz50-ttm-lyr"  # 上证50市盈率
+                    elif col == l2i('PB'):
+                        url = "https://legulegu.com/stockdata/sz50-pb"  # 上证50市净率
                 elif block[0] == "BK05001":
-                    if col==7:
+                    if col == l2i('PE'):
                         url = "https://legulegu.com/stockdata/hs300-ttm-lyr"  # 沪深300市盈率
-                    elif col==8:
+                    elif col == l2i('PB'):
                         url = "https://legulegu.com/stockdata/hs300-pb"  # 沪深300市净率
                 elif block[0] == "BK07001":
-                    if col==7:
+                    if col == l2i('PE'):
                         url = "https://legulegu.com/stockdata/zz500-ttm-lyr"  # 中证500市盈率
-                    elif col==8:
+                    elif col == l2i('PB'):
                         url = "https://legulegu.com/stockdata/zz500-pb"  # 中证500市净率
                 elif block[0] == "BK06121":
-                    if col==7:
+                    if col == l2i('PE'):
                         url = "https://legulegu.com/stockdata/sz180-ttm-lyr"  # 上证180市盈率
-                    elif col==8:
+                    elif col == l2i('PB'):
                         url = "https://legulegu.com/stockdata/sz180-pb"  # 上证180市净率
                 elif block[0] == "BK07051":
-                    if col==7:
+                    if col == l2i('PE'):
                         url = "https://legulegu.com/stockdata/sz380-ttm-lyr"  # 上证380市盈率
-                    elif col==8:
+                    elif col == l2i('PB'):
                         url = "https://legulegu.com/stockdata/sz380-pb"  # 上证380市净率
                 if (url):
                     webbrowser.open(url)
+            else:
+                self.model.setData(self.model.index(row, col))
         else: # 打开个股基本面/信息网页
-            sticker = self.tickers.values[brow]
-            openBrowser(sticker[0])
-            # if col >= 5:
-            #     openBrowser(sticker[0])
-            # else:
-            #     code = sticker[0][:-1]
-            #     name = sticker[1]
-            #     # print (code, name, get_paste_file())
-            #     # with open(get_paste_file(), 'a+') as f:
-            #     #     f.write("{}\t{}\n".format(code, name))
-            #     # # for j in range(11):
-            #     self.model.setData(self.model.index(mi.row(), 6))# ////////////////////////////////
+            code = self.tickers.values[brow][l2i('code')]
+            if col > l2i('|') and col != l2i('板块'):
+                openBrowser(code, flag=0xff)  # 打开财务明细
+            else:
+                self.model.setData(self.model.index(row, col))
 
     def moreClicked(self):
         code_list = list(self.blocks.code)
@@ -379,6 +398,22 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         else: # 打开个股基本面/信息网页
             openBrowser(self.code)
 
+    def updateTickers(self, code, value):
+        try:
+            # print (code, value)
+            if (not self.isTableBlocks):
+                listShow = list(self.model.getShow()['code'])
+                position = listShow.index(code)
+                # print (position, listShow)
+                self.model.setData(self.model.index(position, l2i('|')), value=value)
+                self.model.sort(l2i('|'), 0)  # 自动排序
+            else:
+                row = self.tickers[self.tickers['code'] == code].index.tolist()
+                self.tickers.loc[[row[0]], ['|']] = value
+        except Exception as e:
+            print ("updateTickers error: {}".format(e))
+
+
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
     def __init__(self, tickers, block, para={}, parent=None):
         super(self.__class__, self).__init__(parent)
@@ -389,6 +424,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.block_pe = block[6]
         self.block_pb = block[7]
         self.para = para
+        self.parent = parent
         self.sys_init_block()
 
     def sys_init_block(self):
@@ -413,18 +449,16 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.setWindowTitle("{} {} PE{} PB{}".format(self.block_code,self.block_name,self.block_pe,self.block_pb))
         self.model = PandasModel(self.stickers, parent=self.tableView)
         self.tableView.setModel(self.model)
-        # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.tableView.setColumnWidth(1, 60)
-        self.tableView.setColumnWidth(2, 35)
-        self.tableView.setColumnWidth(3, 35)
-        self.tableView.setColumnWidth(5, 26)
-        self.tableView.setColumnWidth(6, 10)
-        self.tableView.setColumnWidth(7, 45)
-        self.tableView.setColumnWidth(10, 90)
-        self.tableView.setColumnWidth(11, 90)
-        self.tableView.setColumnWidth(12, 90)
-        self.tableView.setColumnWidth(0, 0) # 不要修改, 高效强制刷新的唯一方法
-        self.tableView.setColumnWidth(0, 60)
+        self.tableView.setColumnWidth(l2i('code'), 60)
+        self.tableView.setColumnWidth(l2i('name'), 60)
+        self.tableView.setColumnWidth(l2i('异动'), 35)
+        self.tableView.setColumnWidth(l2i('资金'), 35)
+        self.tableView.setColumnWidth(l2i('分'), 26)
+        self.tableView.setColumnWidth(l2i('|'), 10)
+        self.tableView.setColumnWidth(l2i('PE'), 45)
+        self.tableView.setColumnWidth(l2i('利润'), 90)
+        self.tableView.setColumnWidth(l2i('市值'), 90)
+        self.tableView.setColumnWidth(l2i('板块'), 90)
         self.scode = drawChart(self.graphicsView, data, self.para)
 
     def eventFilter(self, obj, event):
@@ -436,7 +470,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
                 if (event.key() == Qt.Key_Down):
                     row = self.tableView.selectionModel().currentIndex().row() + 1
                 if (row >= -1):
-                    column = self.tableView.selectionModel().currentIndex().column()
+                    # column = self.tableView.selectionModel().currentIndex().column()
                     if (row < 0):
                         row=0
                     elif (row >= len(self.stickers)):
@@ -457,10 +491,19 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
             self.scode = drawChart(self.graphicsView, data, self.para)
 
     def sTableDoubleClicked(self, mi):
-        # 打开个股基本面/信息网页
-        srow = self.model.getIndex()[mi.row()]
-        code = self.stickers.values[srow][0]
-        openBrowser(code)
+        row = mi.row()
+        col = mi.column()
+        srow = self.model.getIndex()[row]
+        code = self.stickers.values[srow][l2i('code')]
+        if col > l2i('|') and col != l2i('板块'):
+            openBrowser(code, flag=0xff)
+        else:
+            self.model.setData(self.model.index(row, col))
+            # 更新主图数据
+            code = self.stickers.loc[srow]['code']
+            selected = self.stickers.loc[srow]['|']
+            # print (code, selected, self.stickers.loc[srow][['code','name','|']])
+            self.parent.updateTickers(code, selected)
 
 
 if __name__ == "__main__":

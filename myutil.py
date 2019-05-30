@@ -9,6 +9,15 @@ import datetime
 import winreg
 import pandas as pd
 
+########### list #################
+def l2i(value):     # list to index
+    l = ['code', 'name', '异动', '资金', '股价', '序', '|', 'PE', 'PB', 'ROE', '利润', '市值', '个股']
+    if value == '分':
+        value = '序'
+    if value == '板块':
+        value = '个股'
+    return l.index(value)
+
 ########### file / path ##########
 def get_cur_dir():
     path = sys.path[0]

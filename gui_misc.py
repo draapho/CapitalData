@@ -5,11 +5,13 @@ import webbrowser
 import numpy as np
 import pyqtgraph as pg
 
-def openBrowser(code):
-    url = 'http://data.eastmoney.com/stockcalendar/{}.html'.format(code[:-1]) # 个股日历
-    webbrowser.open(url)
-    url ='http://data.eastmoney.com/bbsj/yjbb/{}.html'.format(code[:-1]) # 财务报表
-    webbrowser.open(url)
+def openBrowser(code, flag=0xFF):
+    if (flag & 0x01):
+        url = 'http://data.eastmoney.com/stockcalendar/{}.html'.format(code[:-1]) # 个股日历
+        webbrowser.open(url)
+    if (flag & 0x02):
+        url ='http://data.eastmoney.com/bbsj/yjbb/{}.html'.format(code[:-1]) # 财务报表
+        webbrowser.open(url)
     # shsz = "SH" if (code[-1]==1) else "SZ"
     # url = 'http://f10.eastmoney.com/f10_v2/OperationsRequired.aspx?code={}{}#'.format(shsz, code[:-1]) # F10资料, 很多个股没有这个页面
     # webbrowser.open(url)
@@ -36,15 +38,18 @@ def drawChart(graphicsView, data, para):
     except:
         n_end=0
     try:
-        file = "{}{}.csv".format(get_data_path(), data[0])
+        ci = l2i('code') # code index
+        pei = l2i('PE')
+        pbi = l2i('PB')
+        file = "{}{}.csv".format(get_data_path(), data[ci])
         quotes = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
         # quotes = pd.read_csv(file, header=None, engine='c', names=columns, dtype=dtype, na_values= '-')
         quotes['vol3'] = quotes['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
         quotes['c_pre'] = quotes['close'].shift()
         # print (quotes)
     except Exception as e:
-        print("open {} file failed!".format(file))
         print(e)
+        print("open {} file failed!".format(file))
         graphicsView.clear()
         return None
     # print(quotes)
@@ -63,27 +68,27 @@ def drawChart(graphicsView, data, para):
     # y2Axis.setLabel(text='Volumn', units='units')
     y1Axis.setWidth(w=40)
     y2Axis.setWidth(w=40)
-    title = "{} <i>{}</i>".format(data[0][:-1], data[1])
-    if (data[0].startswith("BK") or data[0].startswith("399") or data[0] == "0000011"):
-        title += "<br></br>PE{:.1f}".format(data[7])
-        title += " PB{:.1f}".format(data[8])
+    title = "{} <i>{}</i>".format(data[ci][:-1], data[l2i('name')])
+    if (data[ci].startswith("BK") or data[ci].startswith("399") or data[ci] == "0000011"):
+        title += "<br></br>PE{:.1f}".format(data[pei])
+        title += " PB{:.1f}".format(data[pbi])
     else:
-        if (data[7]<30.0):     # 市盈率
+        if (data[pei]<30.0):     # 市盈率
             color = "#969696"
-        elif (data[7]<60.0):
+        elif (data[pei]<60.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += "<br></br><font color={}>PE{:.1f}</font>".format(color,data[7])
-        if (data[8]<3.0):     # 市净率
+        title += "<br></br><font color={}>PE{:.1f}</font>".format(color,data[pei])
+        if (data[pbi]<3.0):     # 市净率
             color = "#969696"
-        elif (data[8]<6.0):
+        elif (data[pbi]<6.0):
             color = "#FF00FF"
         else:
             color = "#FF0000"
-        title += " <font color={}>PB{:.1f}</font>".format(color,data[8])
+        title += " <font color={}>PB{:.1f}</font>".format(color,data[pbi])
         # try:
-        value = data[11].split('/')[1].strip()
+        value = data[l2i('市值')].split('/')[1].strip()
         if ('万亿' in value or '亿亿' in value):
             color = "#969696"
         elif ('亿' in value):
@@ -137,7 +142,7 @@ def drawChart(graphicsView, data, para):
 
     # # 参考1, 使用pyqtgraph: https://zmister.com/archives/187.html
     # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
-    return data[0]
+    return data[ci]
 
 
 class PandasModel(QAbstractTableModel):
@@ -146,81 +151,80 @@ class PandasModel(QAbstractTableModel):
     """
     def __init__(self, data, parent=None, isBlock=False):
         QAbstractTableModel.__init__(self, parent)
-        self.data = data
-        self._data = data  # ////////////////////////just need one...........
-        self.isBlock=isBlock
-        self.idx = list(self._data.index.values)
+        self._data = data
+        self._show = data
+        self.isBlock = isBlock
+        self._idx = list(self._show.index.values)
         self.blist = ["0000011","3990012","3990052","3990062","BK06111","BK05001","BK07011","BK06121","BK07051"] # 有web链接的行
 
-
     def rowCount(self, parent=None):
-        # return len(self._data.values)
-        return self._data.shape[0]
+        # return len(self._show.values)
+        return self._show.shape[0]
 
     def columnCount(self, parent=None):
-        # return self._data.columns.size
-        return self._data.shape[1]
+        # return self._show.columns.size
+        return self._show.shape[1]
 
     def data(self, index, role=Qt.DisplayRole):
         if index.isValid():
+            row = index.row()
             col = index.column()
             if role == Qt.DisplayRole:
-                return self._data.values[index.row()][col]
+                return self._show.values[row][col]  # 不能用 self._show.iloc[row][col]
             elif role == Qt.ForegroundRole:
-                if (col == 5) and (not self.isBlock):
-                    data = self._data.values[index.row()][col]
-                    if (data<50):      # 总体评分
+                if (col == l2i('分')) and (not self.isBlock):
+                    val = self._show.values[row][col]
+                    if (val<50):      # 总体评分
                         return QColor("#F53131")
-                    elif (data<70):
+                    elif (val<70):
                         return QColor("#D63DD6")
-                if ((col==7) or (col==8)) and self.isBlock:
-                    data = self._data.values[index.row()][0]
-                    if data in self.blist:
-                        return QColor("#1A0DAB")
+                if ((col==l2i('PE')) or (col==l2i('PB'))) and self.isBlock:
+                    val = self._show.values[row][l2i('code')]
+                    if val in self.blist:
+                        return QColor("#1A0DAB")    # 有网页链接
             elif role == Qt.BackgroundRole:
-                data = self._data.values[index.row()][6]
-                if data == "|":
+                val = self._show.iloc[row][l2i('|')]
+                if val == "!":
                     return QColor("#D8EBFC")
         return QVariant()
 
     def headerData(self, col, orientation, role):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return self._data.columns[col]
+            return self._show.columns[col]
         return None
 
     def sort(self,column, order):
         self.layoutAboutToBeChanged.emit()
-        self._data = self._data.sort_values(by=list(self._data)[column], ascending=False if order else True)
-        self.idx = list(self._data.index.values)
+        self._show = self._show.sort_values(by=list(self._show)[column], ascending=False if order else True)
+        self._idx = list(self._show.index.values)
         self.layoutChanged.emit()
+        # self.dataChanged.emit(QModelIndex(), QModelIndex())
+
+    def getShow(self):
+        return self._show
 
     def getIndex(self):
-        # print(row, self.idx)
-        # print(self.idx[row])
-        return self.idx
+        return self._idx
 
-    def setData(self, index, value=True, role=Qt.EditRole):
+    def setData(self, index, value=None, role=Qt.EditRole):
         if role == Qt.EditRole:
+            self.layoutAboutToBeChanged.emit()
             row = index.row()
-            brow = self.idx[row]
-            if (value): #///////////////toggle
-                self.data.loc[[brow], ['|']] = '|'
-                self._data.loc[[row], ['|']] = '|'
-            else:                                       # /////////////////////////////选择.
-                self.data.loc[[brow], ['|']] = ''
-                self._data.loc[[row], ['|']] = ''
-            self.dataChanged.emit(index, index)
-            return True  # This is what I changed in the code
+            brow = self._idx[row]
+            if value is None:   # toggle
+                if (self._data.loc[brow]['|'] == '!'):
+                    self._data.loc[[brow], ['|']] = '.'
+                    self._show.iloc[[row], [l2i('|')]] = '.'
+                else:
+                    self._data.loc[[brow], ['|']] = '!'
+                    self._show.iloc[[row], [l2i('|')]] = '!'
+            else:
+                self._data.loc[[brow], ['|']] = value
+                self._show.iloc[[row], [l2i('|')]] = value
+            self.layoutChanged.emit()
+            # self.dataChanged.emit(index, index)
+            # return True  # No influnce here
         return False
-
-    # def selected(self, row, selected=True):
-    #     if row < self.rowCount():
-    #
-    #         self.data.set_value(brow，'|'，'|')
-    #         self._data.set_value(row，'|'，'|')
-    #         idx= self.index(start_row, start_column, start_parent)
-    #         self.dataChanged.emit(idx, idx)
-    #     return False
 
 
 class KItem(pg.GraphicsObject):
@@ -237,6 +241,7 @@ class KItem(pg.GraphicsObject):
         p = QPainter(self.picture)
         w = 1 / 3.
         last = None
+
         for t, (open, max, min, close, c_pre) in enumerate(self.data.values):
             if open > close:
                 p.setBrush(pg.mkBrush('g'))
