@@ -1,9 +1,13 @@
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from myutil import *
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import webbrowser
 import numpy as np
 import pyqtgraph as pg
+from ast import literal_eval
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from myutil import *
 
 def openBrowser(code, flag=0xFF):
     if (flag & 0x01):
@@ -119,14 +123,31 @@ def drawChart(graphicsView, data, para):
     p2.setXLink(p1)  # 同步缩放
 
     # 导入数据
-    ref_date = para.get('REF_DATE', "") # 在K线图上标注出关键日期
-    ref_idx = quotes[(quotes.date==ref_date)].index.tolist()
-    if (len(ref_idx)):
-        ref_idx = ref_idx[0]
-    elif (p1Len >= 16):
-        ref_idx = p1Len-16
+    ref_date = literal_eval(para.get('REF_DATE', "[]")) # 在K线图上标注出关键日期
+    if not isinstance(ref_date, list):
+        ref_idx = []
     else:
-        ref_idx = -1
+        ref_idx = []
+        for d in ref_date:
+            ref_idx += quotes[(quotes.date==d)].index.tolist()
+
+    if (p1Len >= 16 and len(ref_idx)==0):
+        ref_idx = [p1Len-16]
+
+    if len(ref_idx):
+        try:
+            ref_len = int(para.get('REF_LENGTH', 0))
+        except Exception as e:
+            print ("drawChart ref_len error:{}".format(e))
+            ref_len = 0
+        if (ref_len > 0):
+            ref_idx += [ref_idx[0]+ref_len]
+        else:
+            ref_idx += [-1] # 无结束点
+    else:
+        ref_idx = [-1]  # 不显示
+    # print (ref_idx)
+
 
     item = KItem(quotes[['open', 'high', 'low', 'close', 'c_pre']], ref_idx)
     p1.addItem(item)
@@ -279,8 +300,14 @@ class KItem(pg.GraphicsObject):
                 p.setBrush(pg.mkBrush('w'))
                 p.setPen(pg.mkPen('w'))
                 p.drawLine(QPointF(t - w, last), QPointF(t+w, last))
-            if t == self.ref:
-                # p.setBrush(Qt.NoBrush)
+            if t in self.ref:
+                p.setBrush(Qt.NoBrush)
+                # p.setBrush(pg.mkBrush('y'))
+                p.setPen(pg.mkPen('y'))
+                # p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
+                p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
+                p.drawLine(QPointF(t, min), QPointF(t, max))
+            if t == self.ref[-1] or t == self.ref[0]:
                 p.setBrush(pg.mkBrush('y'))
                 p.setPen(pg.mkPen('y'))
                 p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
@@ -343,7 +370,7 @@ class VItem(pg.GraphicsObject):
                     p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
                 elif (v > 0.5):
                     p.setPen(pg.mkPen('#FF6600'))
-                elif (t > self.ref):
+                elif (t > self.ref[0] and t < self.ref[-1]):
                     p.setPen(pg.mkPen('#FF6600'))
             p.drawRect(QRectF(t-w, -vol, 2*w, 2*vol))   # 百分比化的交易量. 极值为资金流占比达到10%
         p.end()

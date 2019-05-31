@@ -11,62 +11,60 @@ import pandas as pd
 
 ########### list #################
 def l2i(value):     # list to index
-    l = ['code', 'name', '异动', '资金', '股价', '序', '|', 'PE', 'PB', 'ROE', '利润', '市值', '个股']
+    l = ['code', 'name', '当日', '异动', '资金', '股价', '序', '|', 'PE', 'PB', 'ROE', '利润', '市值', '个股']
     if value == '分':
         value = '序'
     if value == '板块':
         value = '个股'
     return l.index(value)
 
-########### file / path ##########
-def get_cur_dir():
-    path = sys.path[0]
-    if os.path.isdir(path):
-        return path
-    elif os.path.isfile(path):
-        return os.path.dirname(path)
 
 def get_data_path():
-    return ".\\_data\\_info\\"
+    return ".\\_data/_info\\"
 
-def get_para_path():
-    # return get_cur_dir() + "\\_para\\"
+def get_defautl_path():
     return ".\\_para\\"
 
-def get_block_path():
-    # return get_cur_dir() + "\\_para\\"
-    return ".\\_para\\blocks\\"
+########### file / path ##########
+class Gpath(object):
+    def __init__(self, gpath=None):
+        if gpath and os.path.exists(gpath) and os.path.isdir(gpath) and gpath.startswith('.\\'):  # 相对路径存在
+            self.gpath = os.path.basename(gpath) + '\\'
+        else:
+            self.gpath = ".\\_para\\"
 
-def get_report_name():
-    return "report.txt"
+    def para_path(self):
+        return self.gpath
 
-def get_report_file():
-    return get_para_path() + get_report_name()
+    def report_file(self):
+        return self.gpath + "report.txt"
 
-def get_parameter_name():
-    return "parameter.ini"
+    def block_path(self):
+        return self.gpath + "blocks\\"
 
-def get_parameter_file():
-    return get_para_path() + get_parameter_name()
+    def parameter_file(self):
+        return self.gpath + "parameter.ini"
 
-def get_tmp_file():
-    return get_para_path() + "tmp"
+    def tmp_file(self):
+        return self.gpath + "tmp"
 
-def get_paste_file():
-    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders')
-    return winreg.QueryValueEx(key, "Desktop")[0] + "\\paste{}.txt".format(datetime.datetime.now().strftime("%m%d"))
-
-def read_parameter_ini():
-    try:
-        with open(get_parameter_file(), 'r', encoding="utf-8-sig") as csv_file:
-            reader = csv.reader(skip_comments(csv_file))
-            para = dict(reader)
-    except Exception as e:
-        para = {}
-        print("Decode \"parameter.ini\" failed! ERR:{}".format(e))
-    para['K_NUMBER'] = para.get('K_NUMBER','all')
-    para['REF_DATE'] = para.get('REF_DATE','')
-    return para
+    def read_parameter_ini(self):
+        try:
+            with open(self.parameter_file(), 'r', encoding="utf-8-sig") as csv_file:
+                reader = csv.reader(skip_comments(csv_file))
+                para = dict(reader)
+        except Exception as e:
+            para = {}
+            print("Decode \"parameter.ini\" failed! ERR:{}".format(e))
+        para['K_NUMBER'] = para.get('K_NUMBER',0)
+        para['REF_DATE'] = para.get('REF_DATE',"")
+        para['REF_LENGTH'] = para.get('REF_LENGTH',0)
+        print (self.gpath, para)
+        # ////////////////////////////////////
+        # 左键弹出日期幅度等信息....
+        # 设置统计时间数...
+        #///////////////////////////
+        return para
 
 
 """

@@ -1,20 +1,29 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import gui_main
 import gui_sub
+import sys
 import subprocess
 import webbrowser
 import numpy as np
 import pandas as pd
 import pyperclip
+import collect_data
+import collect_silence
 from ast import literal_eval
+from myutil import *
 from gui_misc import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
-
+# ////////////////////////////////////// 点击UI界面显示日期股价详情...
 class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
-    def __init__(self, block=None):
+    def __init__(self, gpath=None):
         super(self.__class__, self).__init__()
         self.setupUi(self)
+        self.Gp = Gpath(gpath)
+        self.setWindowTitle("{}".format(self.Gp.para_path()))
         self.sys_init()
 
     def sys_init(self):
@@ -48,12 +57,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         menu.addSeparator()
         menu.addAction(self.calculateRRI)
         menu.addAction(self.collectFunds)
-        menu.addAction(self.collectSilence)
-        menu.addAction(self.autoFix)
-        menu.addSeparator()
-        menu.addAction(self.tickersCsv)
-        menu.addAction(self.blocksCsv)
+        if self.Gp.para_path() == get_defautl_path():   # 非主参数文件夹, 禁止执行数据更新
+            menu.addAction(self.collectSilence)
+            menu.addAction(self.autoFix)
+            menu.addSeparator()
+            menu.addAction(self.tickersCsv)
+            menu.addAction(self.blocksCsv)
         menu.addAction(self.blocksFolder)
+
         self.toolButton.setMenu(menu)
 
         self.copySelected.triggered.connect(self.tools)
@@ -72,8 +83,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.blocksCsv.triggered.connect(self.tools)
         self.blocksFolder.triggered.connect(self.tools)
 
-        self.para = read_parameter_ini()
-        print(self.para)
+        self.para = self.Gp.read_parameter_ini()
 
         # # 搜索文件列表, 加入自动匹配
         # self.path = ".\\_data\\_info\\*.csv"
@@ -114,14 +124,14 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         completer.setFilterMode(Qt.MatchContains)
 
         # table 初始数据
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('强度', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
-        df = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
+        df = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
         col_name = df.columns.tolist()
         col_name.insert(l2i('|'), '|')
         self.blocks = df.reindex(columns=col_name, fill_value=".")
         # print (self.blocks)
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
-        df = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
+        df = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
         col_name = df.columns.tolist()
         col_name.insert(l2i('|'), '|')
         self.tickers = df.reindex(columns=col_name, fill_value=".")
@@ -154,9 +164,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         # self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents) # 导致性能非常差.
         self.tableView.setColumnWidth(l2i('code'), 60)
         self.tableView.setColumnWidth(l2i('name'), 60)
-        self.tableView.setColumnWidth(l2i('异动'), 35)
-        self.tableView.setColumnWidth(l2i('资金'), 35)
-        self.tableView.setColumnWidth(l2i('序'), 26)
+        self.tableView.setColumnWidth(l2i('异动'), 30)
+        self.tableView.setColumnWidth(l2i('资金'), 32)
+        self.tableView.setColumnWidth(l2i('序'), 25)
         self.tableView.setColumnWidth(l2i('|'), 10)
         self.tableView.setColumnWidth(l2i('PE'), 45)
         self.tableView.setColumnWidth(l2i('利润'), 90)
@@ -194,63 +204,77 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
     # ======= operation =======
     def tools(self):
-        if self.sender() == self.webM1M2:
-            webbrowser.open("https://legulegu.com/stockdata/m1m2")  # M1M2供应量
-        elif self.sender() == self.webPrice:
-            webbrowser.open("https://legulegu.com/stockdata/market-analysis-average-price")  # A股平均股价
-        elif self.sender() == self.webPosition:
-            webbrowser.open("https://legulegu.com/stockdata/averageposition")  # 平均仓位
-        elif self.sender() == self.webPE:
-            webbrowser.open("https://legulegu.com/stockdata/a-ttm-lyr")  # 等权市盈率
-        elif self.sender() == self.webPB:
-            webbrowser.open("https://legulegu.com/stockdata/below-net-asset-statistics")  # 破净股比例
-        elif self.sender() == self.collectFunds:
-            subprocess.call('python collect_data.py "get_all_funds"',shell=False)
-        elif self.sender() == self.calculateRRI:
-            subprocess.call('python collect_data.py "calculate_rri"',shell=False)
-        elif self.sender() == self.collectSilence:
-            # os.system(get_cur_dir()+"\\collect_silence.bat")
-            # subprocess.call('start /wait collect_silence.bat', shell=True)
-            subprocess.call('python collect_silence.py', shell=False)
-        elif self.sender() == self.autoFix:
-            # 从记录文件提取下载失败的代码信息
-            file = get_report_file()
-            missed = {}
-            with open(file, 'r') as f:
-                for line in f.readlines():
-                    if line.startswith("get_all_infos(missed)_2,"):
-                        l = literal_eval("["+line.split("[")[1])
-                        # print (type(l),l)
-                        missed['infos'] = l
-                    if line.startswith("get_all_funds(missed)_2,"):
-                        l = literal_eval("["+line.split("[")[1])
-                        # print (type(l),l)
-                        missed['funds'] = l
-            subprocess.call('python collect_data.py {} {}'.format(missed.get('infos', []), missed.get('funds', [])), shell=False)
-        elif self.sender() == self.openFile:
-            os.startfile('.\\_para\\')
-        elif self.sender() == self.setParameter:
-            os.startfile(get_parameter_file())
-            self.para = read_parameter_ini()
-        elif self.sender() == self.tickersCsv:
-            subprocess.call('python collect_data.py "shares_dl_csv"', shell=False)
-        elif self.sender() == self.blocksCsv:
-            subprocess.call('python collect_data.py "blocks_dl_csv"', shell=False)
-        elif self.sender() == self.blocksFolder:
-            subprocess.call('python collect_data.py "blocks_folder"', shell=False)
-        elif self.sender() == self.copySelected:
-            rowList = self.tickers[self.tickers['|'] == '!'].index.tolist()
-            df = self.tickers.loc[rowList][['name', 'code']]
-            dflist = list(df.code)
-            if len(dflist):
-                for i, l in enumerate(dflist):
-                    dflist[i] = l[:-1]
-                dflist.extend(list(df.name))
-                try:
-                    # 保存到剪切板
-                    pyperclip.copy(" ".join(dflist))
-                except Exception as e:
-                    print (e)
+        try:
+            if self.sender() == self.webM1M2:
+                webbrowser.open("https://legulegu.com/stockdata/m1m2")  # M1M2供应量
+            elif self.sender() == self.webPrice:
+                webbrowser.open("https://legulegu.com/stockdata/market-analysis-average-price")  # A股平均股价
+            elif self.sender() == self.webPosition:
+                webbrowser.open("https://legulegu.com/stockdata/averageposition")  # 平均仓位
+            elif self.sender() == self.webPE:
+                webbrowser.open("https://legulegu.com/stockdata/a-ttm-lyr")  # 等权市盈率
+            elif self.sender() == self.webPB:
+                webbrowser.open("https://legulegu.com/stockdata/below-net-asset-statistics")  # 破净股比例
+            elif self.sender() == self.collectFunds:
+                collect_data.collect_data(self.Gp).get_all_funds()
+            elif self.sender() == self.calculateRRI:
+                collect_data.collect_data(self.Gp).calculate_rri()
+            elif self.sender() == self.collectSilence:
+                collect_silence.collect_silence()
+            elif self.sender() == self.autoFix:
+                # 从记录文件提取下载失败的代码信息
+                missed = {}
+                with open(self.Gp.report_file(), 'r') as f:
+                    for line in f.readlines():
+                        if line.startswith("get_all_infos(missed)_2,"):
+                            l = literal_eval("[" + line.split("[")[1])
+                            # print (type(l),l)
+                            missed['infos'] = l
+                        if line.startswith("get_all_funds(missed)_2,"):
+                            l = literal_eval("[" + line.split("[")[1])
+                            # print (type(l),l)
+                            missed['funds'] = l
+                infos = missed.get('infos', [])
+                funds = missed.get('funds', [])
+                print("\r\n===> 尝试修复 <===\r\n")
+                print("infos:{}".format(infos))
+                print("funds:{}".format(funds))
+                cd = collect_data.collect_data(self.Gp)
+                if cd.update_check() != "DENY":
+                    print("get_all_infos:{}\r\nget_all_funds:{}\r\n".format(infos, funds))
+                    if (len(infos)):
+                        cd.get_all_infos(infos)
+                        cd.calculate_rri(infos)
+                    if (len(funds)):
+                        cd.get_all_funds(funds)
+                print("===> 修复完成! <===\r\n")
+            elif self.sender() == self.openFile:
+                os.startfile(self.Gp.para_path())
+                self.para = self.Gp.read_parameter_ini()
+            elif self.sender() == self.setParameter:
+                os.startfile(self.Gp.parameter_file())
+                self.para = self.Gp.read_parameter_ini()
+            elif self.sender() == self.tickersCsv:
+                collect_data.collect_data(self.Gp).save_shares_to_file()
+            elif self.sender() == self.blocksCsv:
+                collect_data.collect_data(self.Gp).save_blocks_to_file()
+            elif self.sender() == self.blocksFolder:
+                collect_data.collect_data(self.Gp).get_shares_in_blocks()
+            elif self.sender() == self.copySelected:
+                rowList = self.tickers[self.tickers['|'] == '!'].index.tolist()
+                df = self.tickers.loc[rowList][['name', 'code']]
+                dflist = list(df.code)
+                if len(dflist):
+                    for i, l in enumerate(dflist):
+                        dflist[i] = l[:-1]
+                    dflist.extend(list(df.name))
+                    try:
+                        # 保存到剪切板
+                        pyperclip.copy(" ".join(dflist))
+                    except Exception as e:
+                        print (e)
+        except Exception as e:
+            print ("tools error:".format(e))
 
     def completerActivated(self):
         self.codeChoosed(lineEdit=True)
@@ -320,7 +344,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                 return
             if col < l2i('|') or col == l2i('个股'):
                 if block[0].startswith("BK"):
-                    dialog = GuiSub(self.tickers, block, self.para, parent=self)
+                    dialog = GuiSub(self.tickers, block, self.Gp, para=self.para, parent=self)
                     dialog.show()
                 # else:
                 #     url = 'https://legulegu.com/stockdata/m1m2'  # M1M2供应量
@@ -378,8 +402,10 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                 self.model.setData(self.model.index(row, col))
         else: # 打开个股基本面/信息网页
             code = self.tickers.values[brow][l2i('code')]
-            if col > l2i('|') and col != l2i('板块'):
-                openBrowser(code, flag=0xff)  # 打开财务明细
+            if col >= l2i('利润'):
+                openBrowser(code, flag=0x02)  # 打开财务明细
+            elif col > l2i('|'):
+                openBrowser(code, flag=0x01)  # 打开个股日历
             else:
                 self.model.setData(self.model.index(row, col))
 
@@ -393,7 +419,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             webbrowser.open(url)
         elif self.code in code_list:
             row = code_list.index(self.code)
-            dialog = GuiSub(self.tickers, self.blocks.values[row], self.para, parent=self)
+            dialog = GuiSub(self.tickers, self.blocks.values[row], self.Gp, para=self.para, parent=self)
             dialog.show()
         else: # 打开个股基本面/信息网页
             openBrowser(self.code)
@@ -415,7 +441,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
 
 class GuiSub(QDialog,gui_sub.Ui_Dialog):
-    def __init__(self, tickers, block, para={}, parent=None):
+    def __init__(self, tickers, block, gpath, para={}, parent=None):
         super(self.__class__, self).__init__(parent)
         self.setupUi(self)
         self.tickers = tickers
@@ -423,13 +449,14 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.block_name = block[1]
         self.block_pe = block[6]
         self.block_pb = block[7]
+        self.Gp = gpath
         self.para = para
         self.parent = parent
         self.sys_init_block()
 
     def sys_init_block(self):
         # 读取列表
-        with open("{}{}.csv".format(get_block_path(),self.block_code), 'r', encoding="utf-8") as csv_file:
+        with open("{}{}.csv".format(self.Gp.block_path(),self.block_code), 'r', encoding="utf-8") as csv_file:
             reader = csv.reader(csv_file)
             codes = [row[0] for row in reader]
         # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
@@ -451,9 +478,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tableView.setModel(self.model)
         self.tableView.setColumnWidth(l2i('code'), 60)
         self.tableView.setColumnWidth(l2i('name'), 60)
-        self.tableView.setColumnWidth(l2i('异动'), 35)
-        self.tableView.setColumnWidth(l2i('资金'), 35)
-        self.tableView.setColumnWidth(l2i('分'), 26)
+        self.tableView.setColumnWidth(l2i('异动'), 30)
+        self.tableView.setColumnWidth(l2i('资金'), 32)
+        self.tableView.setColumnWidth(l2i('分'), 25)
         self.tableView.setColumnWidth(l2i('|'), 10)
         self.tableView.setColumnWidth(l2i('PE'), 45)
         self.tableView.setColumnWidth(l2i('利润'), 90)
@@ -495,8 +522,10 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         col = mi.column()
         srow = self.model.getIndex()[row]
         code = self.stickers.values[srow][l2i('code')]
-        if col > l2i('|') and col != l2i('板块'):
-            openBrowser(code, flag=0xff)
+        if col >= l2i('利润'):
+            openBrowser(code, flag=0x02)  # 打开财务明细
+        elif col > l2i('|'):
+            openBrowser(code, flag=0x01)  # 打开个股日历
         else:
             self.model.setData(self.model.index(row, col))
             # 更新主图数据
@@ -508,6 +537,9 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    gui_action = GuiMain()
+    gpath = None
+    if len(sys.argv) == 2:
+        gpath = sys.argv[1]
+    gui_action = GuiMain(gpath)
     gui_action.show()
     sys.exit(app.exec_())

@@ -16,10 +16,18 @@ from tendo import singleton
 from ast import literal_eval
 
 class collect_data(object):
-    def __init__(self):
+    def __init__(self, Gp=None):
         self.time_str = None
         self.rd = {}
         self.tz = pytz.timezone('Asia/Shanghai')
+        if (Gp is None):
+            self.Gp = Gpath()
+        else:
+            self.Gp = Gp
+            try:
+                self.Gp.para_path()
+            except:
+                self.Gp = Gpath(".\\_para_test")    # just for in case
 
     """
     def get_day_detail(self, id):
@@ -112,8 +120,7 @@ class collect_data(object):
             date = self.time_str.split()[0]
             # print (ymd)
         if (path is None):
-            path = get_cur_dir() + \
-                "\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
+            path = ".\\_data\\{}\\{}\\".format(ymd[0], ymd[1] + ymd[2])
         fileName += ".csv"
         # print(path + fileName)
 
@@ -406,10 +413,6 @@ class collect_data(object):
             return None
 
     def get_block_fund(self):
-
-        # //////////// 关键节点后面加上天数, 便于复盘学习!
-
-
         ## ///////////////////////////////
         ## 通过  get_code_fund  获取的信息值是有问题的, 肯定不是最新值, 也不知道是否更新. 但是评分系统只有那里有, 以后可以改名为 get_score_fund
         ## 市盈率, 市净率 == 指标, 东方财富网是每天定时更新的, 而且搜集起来很方便:
@@ -670,7 +673,7 @@ class collect_data(object):
             print("save_fund to file: {}".format(file))
             key = fund.keys()
             with codecs.open(file, "r", encoding="utf8") as fi, \
-                codecs.open(get_tmp_file(), "w", encoding="utf8") as fo:
+                codecs.open(self.Gp.tmp_file(), "w", encoding="utf8") as fo:
                 for line in fi:
                     lists = line.split(",")
                     if lists[0] in key:
@@ -678,7 +681,7 @@ class collect_data(object):
                     else:
                         fo.write(line)
             os.remove(file)
-            os.rename(get_tmp_file(), file)
+            os.rename(self.Gp.tmp_file(), file)
             print("save_fund finished: {}".format(file))
         except Exception as e:
             raise Exception("save_fund ERROR: \r\tfund:{}\r\tfile:{}\r\terr:{}".format(fund, file, e))
@@ -688,22 +691,22 @@ class collect_data(object):
             print("save_rri to file: {}".format(file))
             key = rri.keys()
             with codecs.open(file, "r", encoding="utf8") as fi, \
-                codecs.open(get_tmp_file(), "w", encoding="utf8") as fo:
+                codecs.open(self.Gp.tmp_file(), "w", encoding="utf8") as fo:
                 for line in fi:
                     lists = line.split(",")
                     if lists[0] in key:
-                        fo.write(','.join(lists[:2] + rri[lists[0]] + lists[5:]))
+                        fo.write(','.join(lists[:2] + rri[lists[0]] + lists[l2i('序'):]))
                     else:
                         fo.write(line)
             os.remove(file)
-            os.rename(get_tmp_file(), file)
+            os.rename(self.Gp.tmp_file(), file)
             print("save_rri finished: {}".format(file))
         except Exception as e:
             raise Exception("save_rri ERROR: \r\trri:{}\r\tfile:{}\r\terr:{}".format(rri, file, e))
 
     def save_shares_in_blocks(self, block, shares, path=None):
         if (path is None):
-            path = get_para_path() + "blocks\\"
+            path = self.Gp.block_path()
             if (os.path.exists(path) is False):
                 os.makedirs(path)
             path = path + "{}.csv".format(block)
@@ -720,9 +723,9 @@ class collect_data(object):
 
     def save_shares_to_file(self, path=None):
         if (path is None):
-            if (os.path.exists(get_para_path()) is False):
-                os.makedirs(get_para_path())
-            path = get_para_path() + "tickers_dl.csv"
+            if (os.path.exists(self.Gp.para_path()) is False):
+                os.makedirs(self.Gp.para_path())
+            path = self.Gp.para_path() + "tickers_dl.csv"
 
         shares = self.get_shares_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
@@ -739,9 +742,9 @@ class collect_data(object):
             "3990062":"创业板",
         }
         if (path is None):
-            if (os.path.exists(get_para_path()) is False):
-                os.makedirs(get_para_path())
-            path = get_para_path() + "blocks_dl.csv"
+            if (os.path.exists(self.Gp.para_path()) is False):
+                os.makedirs(self.Gp.para_path())
+            path = self.Gp.para_path() + "blocks_dl.csv"
         blocks = self.get_blocks_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
@@ -754,7 +757,7 @@ class collect_data(object):
     def get_blocks_from_file(self, file=None):
         blocks_code = []
         if (file is None):
-            file = get_para_path() + "blocks.csv"
+            file = self.Gp.para_path() + "blocks.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
@@ -767,7 +770,7 @@ class collect_data(object):
     def get_shares_from_file(self, file=None):
         tickers_code = []
         if (file is None):
-            file = get_para_path() + "tickers.csv"
+            file = self.Gp.para_path() + "tickers.csv"
         try:
             with open(file, 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
@@ -836,14 +839,21 @@ class collect_data(object):
 
         rri = {}
         try:
-            para = read_parameter_ini()
+            para = self.Gp.read_parameter_ini()
             n_end = int(para.get('K_NUMBER', 0))
             if (n_end > 64) or (n_end<=0):
                 n_end = 64
-            ref_date = para.get("REF_DATE", "")
-        except:
-            n_end = 64
-            ref_date = ""
+            ref_date = literal_eval(para.get("REF_DATE", ""))
+            if (len(ref_date)):
+                ref_date = ref_date[0]
+            else:
+                ref_date = ""
+            ref_len = int(para.get('REF_LENGTH', 0))
+        except Exception as e:
+            print ("para={}, e={}".format(para,e))
+            print("===> calculate_rri Error: Invalid parameter! <===")
+            return
+        print("K_NUMBER:{}, REF_DATE:{}, REF_LEN:{}".format(n_end, ref_date, ref_len))
 
         total = len(codes)
         for i, code in enumerate(codes,1):
@@ -853,7 +863,6 @@ class collect_data(object):
                 file = "{}{}.csv".format(get_data_path(), code)
                 active = 0
                 inflow = 0
-                found = 0
                 df = loadData(file, n_end, n_end, names=columns, dtype=dtype, na_values='-')
                 df['vol3'] = df['vol2'] / 100000  # 单位转换为百亿元, 对应于资金流百分比
                 df['c_pre'] = df['close'].shift()
@@ -867,6 +876,11 @@ class collect_data(object):
                     ref_idx = df_len-16
                 else:
                     ref_idx = -1
+                if (ref_len <= 0) or (ref_idx < 0):
+                    ref_end = -1
+                else:
+                    ref_end = ref_idx+ref_len
+
                 # 计算大资金异动次数：大资金放量0.5%以上, 逆势流入(当日下跌, 收盘下跌)
                 for index, row in df.iterrows():
                     # print (index, row)
@@ -879,7 +893,7 @@ class collect_data(object):
                                  or (v>0.3 and p<0.01) or (-p*v*100 > 0.1)):
                             active += 1
                         # 计算关键节点后, 资金流入次数. 根据股价波动设置不同的权重
-                        if (index >= ref_idx) or (ref_idx < 0):
+                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end):
                             if (f<-1.0):                # 下跌
                                 inflow += v * -f
                             elif (f<1.0):               # 波动
@@ -889,32 +903,32 @@ class collect_data(object):
                             if (row['xlarge'] < 0):     # 扣掉超大流出的部分
                                 inflow += (v+row['xlarge']/row['vol3'])
                     elif (row['xlarge'] > 0):           # 超大流入, 但大流出更多
-                        if (index >= ref_idx) or (ref_idx < 0):
+                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end):
                             inflow += row['xlarge']/row['vol3']
-                if (ref_idx < 0):
-                    rri[code] = ["{}".format(active), "{:.1f}".format(inflow), "-"]
-                else:
-                    # # 计算关键节点后, 资金和成交量占比
-                    # vol = df['vol3'].rolling(l).mean()
-                    # capital = df['main'].rolling(l).mean()
-                    # capital_rri = capital.values[-1]/vol.values[-1]
-                    # # 取消了此指标, 用净流入权重次数替代. "{:.1f}".format(capital_rri*10)
+                    if (inflow < 0):
+                        inflow = 0
 
-                    # 计算关键节点后, 股价波动百分比
+                if (ref_idx < 0):
+                    # v表示当天的大资金占比, 主力资金/总交易额, 单位为千分之一
+                    rri[code] = ["{:.2f}".format(v), "{}".format(active), "{:.1f}".format(inflow), "-"]
+                else:
+                    # 计算关键节点后, 股价波动百分比.
+                    if ref_end > index or ref_end <= 0:
+                        ref_end = index
                     c = df['close'].values
-                    price_rri = (c[-1]-c[ref_idx])/c[ref_idx]
+                    price_rri = (c[ref_end]-c[ref_idx])/c[ref_idx]
                     # print (df[['close','date']])
                     # print (c[ref_idx], c[-1])
 
-                    rri[code] = ["{}".format(active), "{:.1f}".format(inflow), "{:.1f}".format(price_rri*100)]
+                    rri[code] = ["{:.2f}".format(v), "{}".format(active), "{:.1f}".format(inflow), "{:.1f}".format(price_rri*100)]
             except Exception as e:
                 self.rd["calculate_rri({})".format(code)] = e
                 print("calculate_rri({}):\t{}".format(code, e))
 
         # 保存数据
         # print (rri)
-        self.save_rri(rri, get_para_path() + "tickers.csv")
-        self.save_rri(rri, get_para_path() + "blocks.csv")
+        self.save_rri(rri, self.Gp.para_path() + "tickers.csv")
+        self.save_rri(rri, self.Gp.para_path() + "blocks.csv")
 
         self.rd["===> calculate_rri"] = "END"
         print("===> calculate_rri END <===")
@@ -953,9 +967,9 @@ class collect_data(object):
             # print (fund_ticker)
             # print (fund_block)
             if (len(fund_ticker)):
-                self.save_fund(fund_ticker, get_para_path()+"tickers.csv", 5)
+                self.save_fund(fund_ticker, self.Gp.para_path()+"tickers.csv", l2i('分'))
             if (len(fund_block)):
-                self.save_fund(fund_block, get_para_path()+"blocks.csv", 6)
+                self.save_fund(fund_block, self.Gp.para_path()+"blocks.csv", l2i('序')+1)
         except Exception as e:
             self.rd["get_all_funds(save)"] = e
             print("get_all_funds(save):\t{}".format(e))
@@ -978,7 +992,7 @@ class collect_data(object):
             if (hour == '15' and min > '05'):
                 try:
                     d = {}
-                    with open(get_report_file(), 'r') as f:
+                    with open(self.Gp.report_file(), 'r') as f:
                         lines = f.readlines()
                         for line in lines:
                             if "data_end" in line:
@@ -1005,10 +1019,10 @@ class collect_data(object):
         now = datetime.datetime.now(self.tz)
         self.rd['run_end'] = now
         try:
-            if (os.path.exists(get_para_path()) is False):
-                os.makedirs(get_para_path())
+            if (os.path.exists(self.Gp.para_path()) is False):
+                os.makedirs(self.Gp.para_path())
 
-            with open(get_report_file(), 'w') as f:
+            with open(self.Gp.report_file(), 'w') as f:
                 for key, val in self.rd.items():
                     f.write("{},\t{}\r".format(key, val))
         except Exception as e:
@@ -1021,54 +1035,23 @@ class collect_data(object):
         codes_dict = {"missed_info":self.rd.get("get_all_infos_missed",[]), "missed_fund":self.rd.get("get_all_funds_missed",[])}
         return codes_dict
 
-def collect_data_test(cd):
+
+if __name__ == '__main__':
+    me = singleton.SingleInstance()
+    ##### test purpose #####
+    # cd = collect_data()
+    # cd = collect_data(Gpath(".\\_para_test"))
+
     # cd.get_all_infos()                                        # 获取所有资金信息
     # cd.get_all_infos(cd.get_blocks_from_file())               # 获取板块资金信息
     # cd.get_all_infos(cd.get_shares_from_file())               # 获取股票资金信息
     # codes = ['BK04561', 'BK04771', '0003332','6000171']
     # cd.get_all_infos(codes)                                   # 获取指定资金信息
+
     # cd.calculate_rri()                                        # 计算所有资金强度
     # codes = ['BK04561', 'BK04771', '0003332','6000171']
     # cd.calculate_rri(codes)                                   # 计算指定资金强度
+
     # cd.get_all_funds()                                        # 获取所有基本信息
     # codes = ['0003332','6000171']
     # cd.get_all_funds(codes)                                   # 获取指定基本信息
-    pass
-
-
-if __name__ == '__main__':
-    me = singleton.SingleInstance()
-    cd = collect_data()
-
-    if len(sys.argv) == 2:
-        print("\r\n===> 强烈建议收盘后下载数据. 否则可能导致数据缺失! <===\r\n")
-        if sys.argv[1] == "calculate_rri":
-            cd.calculate_rri()
-        if sys.argv[1] == "get_all_funds":
-            cd.get_all_funds()
-        elif sys.argv[1] == "shares_dl_csv":
-            cd.save_shares_to_file()
-        elif sys.argv[1] == "blocks_dl_csv":
-            cd.save_blocks_to_file()
-        elif sys.argv[1] == "blocks_folder":
-            cd.get_shares_in_blocks()
-    elif len(sys.argv) == 3:
-        try:
-            infos = literal_eval(sys.argv[1])
-            funds = literal_eval(sys.argv[2])
-            print("\r\n===> 尝试修复 <===\r\n")
-            print("infos:{}".format(infos))
-            print("funds:{}".format(funds))
-            if cd.update_check() != "DENY":
-                print("get_all_infos:{}\r\nget_all_funds:{}\r\n".format(infos, funds))
-                if (len(infos)):
-                    cd.get_all_infos(infos)
-                    cd.calculate_rri(infos)
-                if (len(funds)):
-                    cd.get_all_funds(funds)
-            print("===> 修复完成! <===\r\n")
-        except Exception as e:
-            print(e)
-    else:
-        # test purpose
-        collect_data_test(cd)
