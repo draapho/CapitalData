@@ -72,7 +72,11 @@ def drawChart(graphicsView, data, para):
     # y2Axis.setLabel(text='Volumn', units='units')
     y1Axis.setWidth(w=40)
     y2Axis.setWidth(w=40)
-    title = "{} <i>{}</i>".format(data[ci][:-1], data[l2i('name')])
+    try:
+        bk = str(data[l2i('板块')]).split('/')[1].strip()
+    except:
+        bk = ""
+    title = "{} <i>{}</i> <i>{}</i>".format(data[ci][:-1], data[l2i('name')], bk)
     if (data[ci].startswith("BK") or data[ci].startswith("399") or data[ci] == "0000011"):
         title += "<br></br>PE{:.1f}".format(data[pei])
         title += " PB{:.1f}".format(data[pbi])
@@ -387,13 +391,13 @@ class VItem(pg.GraphicsObject):
             p.setPen(pg.mkPen("#a0a0a4"))
             if (main > 0):
                 if (v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1) \
-                    or (v > 0.3 and pp < 0) or (-pp * v * 100 > 0.2):
+                    or (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.2):
                     # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
                     p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
                 elif (v > 0.5):
                     p.setPen(pg.mkPen('#FF6600'))
-                elif (t > self.ref[0] and t < self.ref[-1]):
-                    p.setPen(pg.mkPen('#FF6600'))
+                # elif (t > self.ref[0] and t < self.ref[-1]):    # 指定周期内, 只要是流入, 就标注出.
+                #     p.setPen(pg.mkPen('#FF6600'))
             p.drawRect(QRectF(t-w, -vol, 2*w, 2*vol))   # 百分比化的交易量. 极值为资金流占比达到10%
         p.end()
 

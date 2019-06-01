@@ -87,7 +87,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.para = self.Gp.read_parameter_ini()
 
         # # 搜索文件列表, 加入自动匹配
-        # self.path = ".\\_data\\_info\\*.csv"
+        # self.path = get_data_path()
         # try:
         #     self.tickers_code = glob.glob(self.path)
         #     if len(self.tickers_code) == 0:
@@ -103,7 +103,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         items_list = []
         # 读取csv文件获取股票名称
         try:
-            with open( ".\\_para\\tickers.csv", 'r', encoding="utf-8") as csv_file:
+            with open(self.Gp.tickers_csv(), 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
                 for row in reader:
                     items_list.extend(row[0:2])
@@ -112,7 +112,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
         # 读取csv文件获取板块名称
         try:
-            with open( ".\\_para\\blocks.csv", 'r', encoding="utf-8") as csv_file:
+            with open(self.Gp.blocks_csv(), 'r', encoding="utf-8") as csv_file:
                 reader = csv.reader(csv_file)
                 for row in reader:
                     items_list.extend(row[0:2])
@@ -126,13 +126,13 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
 
         # table 初始数据
         dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
-        df = pd.read_csv(".\\_para\\blocks.csv", header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
+        df = pd.read_csv(self.Gp.blocks_csv(), header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
         col_name = df.columns.tolist()
         col_name.insert(l2i('|'), '|')
         self.blocks = df.reindex(columns=col_name, fill_value=".")
         # print (self.blocks)
         dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
-        df = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
+        df = pd.read_csv(self.Gp.tickers_csv(), header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
         col_name = df.columns.tolist()
         col_name.insert(l2i('|'), '|')
         self.tickers = df.reindex(columns=col_name, fill_value=".")
@@ -473,7 +473,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
             reader = csv.reader(csv_file)
             codes = [row[0] for row in reader]
         # dtype=np.dtype([('code', 'S'), ('name', 'S'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
-        # self.tickers = pd.read_csv(".\\_para\\tickers.csv", header=None, names=['code', 'name', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-').set_index(['code'])
+        # self.tickers = pd.read_csv(self.Gp.tickers_csv(), header=None, names=['code', 'name', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-').set_index(['code'])
         self.stickers = (self.tickers.set_index(['code']).loc[codes]).reset_index()
         data = list(self.stickers.iloc[0])
         # print(self.stickers)

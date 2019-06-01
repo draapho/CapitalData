@@ -20,7 +20,7 @@ def l2i(value):     # list to index
 
 
 def get_data_path():
-    return ".\\_data/_info\\"
+    return ".\\_data\\_info\\"
 
 def get_defautl_path():
     return ".\\_para\\"
@@ -47,6 +47,12 @@ class Gpath(object):
 
     def tmp_file(self):
         return self.gpath + "tmp"
+
+    def tickers_csv(self):
+        return self.gpath + "tickers.csv"
+
+    def blocks_csv(self):
+        return self.gpath + "blocks.csv"
 
     def read_parameter_ini(self):
         try:
