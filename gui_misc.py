@@ -327,17 +327,21 @@ class KItem(pg.GraphicsObject):
             if t == self.ref[-1] or t == self.ref[0]:
                 p.setBrush(pg.mkBrush('y'))
                 p.setPen(pg.mkPen('y'))
-                p.drawRect(QRectF(t-w+w/6, (open+close)/2-(close-open)/2.4, w*2-w/3, (close - open)/1.2))
-                # p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
-                # p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
-                p.drawLine(QPointF(t, min), QPointF(t, max))
+                if open == close:
+                    p.drawLine(QPointF(t - w, close), QPointF(t + w, close))
+                else:
+                    p.drawRect(QRectF(t-w+w/6, (open+close)/2-(close-open)/2.4, w*2-w/3, (close - open)/1.2))
+                    # p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
+                    # p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
+                if (min != max):
+                    p.drawLine(QPointF(t, min), QPointF(t, max))
             elif t in self.ref:
                 p.setBrush(Qt.NoBrush)
-                # p.setBrush(pg.mkBrush('y'))
                 p.setPen(pg.mkPen('y'))
-                # p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
                 p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
-                p.drawLine(QPointF(t, min), QPointF(t, max))
+                if (min != max):
+                    p.drawLine(QPointF(t, min), QPointF(t, max))
+
         p.end()
 
     def paint(self, p, *args):
