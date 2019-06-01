@@ -26,8 +26,9 @@ class collect_data(object):
             self.Gp = Gp
             try:
                 self.Gp.para_path()
-            except:
-                self.Gp = Gpath(".\\_para_test")    # just for in case
+            except Exception as e:
+                print ("collect_data error:{}".format(e))
+                raise Exception (e)
 
     """
     def get_day_detail(self, id):
