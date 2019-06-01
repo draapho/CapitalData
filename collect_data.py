@@ -885,16 +885,16 @@ class collect_data(object):
                 # 计算大资金异动次数：大资金放量0.5%以上, 逆势流入(当日下跌, 收盘下跌)
                 for index, row in df.iterrows():
                     # print (index, row)
-                    v = row['main']/row['vol3']                     # 1000 * 大资金流入 / 总交易额
-                    f = (row['close']-row['open'])/row['open']      # 当日波动幅度
-                    # p = (row['close']-row['c_pre'])/row['c_pre']    # 涨幅
-                    if (row['main'] > 0):
-                        # 统计所有K线的异动情况: 小幅波动, 大幅流入 # 大资金流入比 * 当日波动幅度/涨跌幅度 * 100
-                        if (v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.1):
-                            # or (v>0.3 and p<0.01) or (-p*v*100 > 0.1):
-                            active += 1
-                        # 计算关键节点后, 资金流入次数. 根据股价波动设置不同的权重
-                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end or ref_end < 0):
+                    if (index >= ref_idx or ref_idx < 0) and (index <= ref_end or ref_end < 0):
+                        v = row['main']/row['vol3']                     # 1000 * 大资金流入 / 总交易额
+                        f = (row['close']-row['open'])/row['open']      # 当日波动幅度
+                        p = (row['close']-row['c_pre'])/row['c_pre']    # 涨幅
+                        if (row['main'] > 0):
+                            # 统计所有K线的异动情况: 小幅波动, 大幅流入 # 大资金流入比 * 当日波动幅度/涨跌幅度 * 100
+                            if (v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.1) \
+                                or (v>0.3 and p<0) or (-p*v*100 > 0.2):
+                                active += 1
+                            # 计算关键节点后, 资金流入次数. 根据股价波动设置不同的权重
                             if (f<-1.0):                # 下跌
                                 inflow += v * -f
                             elif (f<1.0):               # 波动
@@ -903,8 +903,7 @@ class collect_data(object):
                                 inflow += v / f
                             if (row['xlarge'] < 0):     # 扣掉超大流出的部分
                                 inflow += (v+row['xlarge']/row['vol3'])
-                    elif (row['xlarge'] > 0):           # 超大流入, 但大流出更多
-                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end or ref_end < 0):
+                        elif (row['xlarge'] > 0):           # 超大流入, 但大流出更多
                             inflow += row['xlarge']/row['vol3']
 
                 if (ref_idx < 0):

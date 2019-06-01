@@ -383,11 +383,11 @@ class VItem(pg.GraphicsObject):
 
             v = main / vol  # 1000 * 大资金流入 / 总交易额
             f = (c-o) / o  # 当日波动幅度
-            # pp = (c-cp) / cp  # 涨幅
+            pp = (c-cp) / cp  # 涨幅
             p.setPen(pg.mkPen("#a0a0a4"))
             if (main > 0):
-                if (v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1):
-                    # or (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.1):
+                if (v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1) \
+                    or (v > 0.3 and pp < 0) or (-pp * v * 100 > 0.2):
                     # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
                     p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
                 elif (v > 0.5):
