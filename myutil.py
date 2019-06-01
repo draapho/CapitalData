@@ -60,10 +60,6 @@ class Gpath(object):
         para['REF_DATE'] = para.get('REF_DATE',"")
         para['REF_LENGTH'] = para.get('REF_LENGTH',0)
         print (self.gpath, para)
-        # ////////////////////////////////////
-        # 左键弹出日期幅度等信息....
-        # 设置统计时间数...
-        #///////////////////////////
         return para
 
 

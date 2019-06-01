@@ -17,7 +17,7 @@ from gui_misc import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
-# ////////////////////////////////////// 点击UI界面显示日期股价详情...
+
 class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
     def __init__(self, gpath=None):
         super(self.__class__, self).__init__()
@@ -150,6 +150,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.tableView.installEventFilter(self) # eventFilter
         self.tableView.doubleClicked.connect(self.tableDoubleClicked)
         self.tableView.setSortingEnabled(True)
+        self.graphicsView.scene().sigMouseClicked.connect(self.viewClicked)
         self.isTableBlocks = True
         self.set_table()
         self.code = drawChart(self.graphicsView,data,self.para)
@@ -342,13 +343,10 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             block = self.blocks.values[brow]
             if '-' in block[0]:
                 return
-            if col < l2i('|') or col == l2i('个股'):
+            if col < l2i('序') or col == l2i('个股'):
                 if block[0].startswith("BK"):
                     dialog = GuiSub(self.tickers, block, self.Gp, para=self.para, parent=self)
                     dialog.show()
-                # else:
-                #     url = 'https://legulegu.com/stockdata/m1m2'  # M1M2供应量
-                #     webbrowser.open(url)
             elif col > l2i('|'):
                 url = None
                 if block[0] == '0000011':
@@ -402,12 +400,12 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                 self.model.setData(self.model.index(row, col))
         else: # 打开个股基本面/信息网页
             code = self.tickers.values[brow][l2i('code')]
-            if col >= l2i('利润'):
-                openBrowser(code, flag=0x02)  # 打开财务明细
-            elif col > l2i('|'):
+            if col <= l2i('|') or col == l2i('板块'):
+                self.model.setData(self.model.index(row, col))
+            elif col < l2i('利润'):
                 openBrowser(code, flag=0x01)  # 打开个股日历
             else:
-                self.model.setData(self.model.index(row, col))
+                openBrowser(code, flag=0x02)  # 打开财务明细
 
     def moreClicked(self):
         code_list = list(self.blocks.code)
@@ -423,6 +421,20 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             dialog.show()
         else: # 打开个股基本面/信息网页
             openBrowser(self.code)
+
+    def viewClicked(self, event):
+        if (event.button() == Qt.LeftButton) and (event.double()):
+            try:
+                # print (event.pos(), event.scenePos())
+                items = self.graphicsView.scene().items(event.scenePos())
+                # print (items)                                         # 可以看到包含各种Item, 如 PlotCurveItem, ViewBox, PlotItem
+                for i in items:
+                    if isinstance(i, KItem) or isinstance(i, VItem):    # 提取想要的Item类型
+                        pos = i.mapFromScene(event.scenePos())          # 转换为Item内的坐标系
+                        idx = int(0.5+pos.x())                          # 0开始计数, +0.5后的整数部分就是K线idx
+                        popInfo(i.data, idx, self)
+            except Exception as e:
+                print ("viewClicked error: {}".format(e))
 
     def updateTickers(self, code, value):
         try:
@@ -471,6 +483,7 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tableView.doubleClicked.connect(self.sTableDoubleClicked)
         self.tableView.installEventFilter(self) # eventFilter
         self.tableView.setSortingEnabled(True)
+        self.graphicsView.scene().sigMouseClicked.connect(self.viewClicked)
 
         # 初始化GUI
         self.setWindowTitle("{} {} PE{} PB{}".format(self.block_code,self.block_name,self.block_pe,self.block_pb))
@@ -522,17 +535,31 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         col = mi.column()
         srow = self.model.getIndex()[row]
         code = self.stickers.values[srow][l2i('code')]
-        if col >= l2i('利润'):
-            openBrowser(code, flag=0x02)  # 打开财务明细
-        elif col > l2i('|'):
-            openBrowser(code, flag=0x01)  # 打开个股日历
-        else:
+        if col <= l2i('|') or col == l2i('板块'):
             self.model.setData(self.model.index(row, col))
             # 更新主图数据
             code = self.stickers.loc[srow]['code']
             selected = self.stickers.loc[srow]['|']
             # print (code, selected, self.stickers.loc[srow][['code','name','|']])
             self.parent.updateTickers(code, selected)
+        elif col < l2i('利润'):
+            openBrowser(code, flag=0x01)  # 打开个股日历
+        else:
+            openBrowser(code, flag=0x02)  # 打开财务明细
+
+    def viewClicked(self, event):
+        if (event.button() == Qt.LeftButton) and (event.double()):
+            try:
+                # print (event.pos(), event.scenePos())
+                items = self.graphicsView.scene().items(event.scenePos())
+                # print (items)                                         # 可以看到包含各种Item, 如 PlotCurveItem, ViewBox, PlotItem
+                for i in items:
+                    if isinstance(i, KItem) or isinstance(i, VItem):    # 提取想要的Item类型
+                        pos = i.mapFromScene(event.scenePos())          # 转换为Item内的坐标系
+                        idx = int(0.5+pos.x())                          # 0开始计数, +0.5后的整数部分就是K线idx
+                        popInfo(i.data, idx, self)
+            except Exception as e:
+                print ("viewClicked error: {}".format(e))
 
 
 if __name__ == "__main__":

@@ -148,13 +148,13 @@ def drawChart(graphicsView, data, para):
         ref_idx = [-1]  # 不显示
     # print (ref_idx)
 
-
-    item = KItem(quotes[['open', 'high', 'low', 'close', 'c_pre']], ref_idx)
+    item_list = ['date', 'open', 'high', 'low', 'close', 'c_pre', 'vol3', 'main', 'xlarge', 'middle']
+    item = KItem(quotes[item_list], ref_idx)
     p1.addItem(item)
     day = quotes['close'].rolling(16).mean()  # 日均线
     p1.plot(day, pen="#ffffff")
 
-    item = VItem(quotes[['vol3', 'main', 'xlarge', 'middle', 'open', 'close', 'c_pre']], ref_idx)
+    item = VItem(quotes[item_list], ref_idx)
     p2.addItem(item)
     dayS = quotes['main'].rolling(16).mean()  # 短均线
     p2.plot(dayS, pen="#ffffff")
@@ -165,6 +165,26 @@ def drawChart(graphicsView, data, para):
     # # 参考2, 使用plt: https://www.jianshu.com/p/c10e57ccc7ba     from mpl_finance import candlestick_ohlc
     return data[ci]
 
+def popInfo(data, idx, win):
+    # print (pos, idx)
+    info = QMenu(win)
+    # item_list = ['date', 'open', 'high', 'low', 'close', 'c_pre', 'vol3', 'main']
+    date = data.loc[idx]['date']
+    date = date[5:7] + date[8:10]
+    open = data.loc[idx]['open']
+    high = data.loc[idx]['high']
+    low = data.loc[idx]['low']
+    close = data.loc[idx]['close']
+    c_pre = data.loc[idx]['c_pre']
+    scale = 100 * (close - c_pre) / c_pre
+    vol = data.loc[idx]['vol3']
+    main = data.loc[idx]['main']
+    vol_num = readableNum(vol * 10, divisor=10000, power="万", precision=2)
+    main_num = readableNum(main, divisor=10000, power="万", precision=2)
+    perm = main / vol  # 千分比
+    info.addAction("{} | {:.2f}% {:.2f}‰ | {:.2f} / {:.2f} / {:.2f} / {:.2f} | {} / {}".format(date, scale, perm, open, close, high, low, vol_num, main_num))
+    info.move(win.pos() + QPoint(15, 45))
+    info.show()
 
 class PandasModel(QAbstractTableModel):
     """
@@ -263,7 +283,7 @@ class KItem(pg.GraphicsObject):
         w = 1 / 3.
         last = None
 
-        for t, (open, max, min, close, c_pre) in enumerate(self.data.values):
+        for t, (data, open, max, min, close, c_pre, vol3, main, xlarge, middle) in enumerate(self.data.values):
             if open > close:
                 p.setBrush(pg.mkBrush('g'))
                 p.setPen(pg.mkPen('g'))
@@ -300,18 +320,19 @@ class KItem(pg.GraphicsObject):
                 p.setBrush(pg.mkBrush('w'))
                 p.setPen(pg.mkPen('w'))
                 p.drawLine(QPointF(t - w, last), QPointF(t+w, last))
-            if t in self.ref:
+            if t == self.ref[-1] or t == self.ref[0]:
+                p.setBrush(pg.mkBrush('y'))
+                p.setPen(pg.mkPen('y'))
+                p.drawRect(QRectF(t-w+w/6, (open+close)/2-(close-open)/2.4, w*2-w/3, (close - open)/1.2))
+                # p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
+                # p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
+                p.drawLine(QPointF(t, min), QPointF(t, max))
+            elif t in self.ref:
                 p.setBrush(Qt.NoBrush)
                 # p.setBrush(pg.mkBrush('y'))
                 p.setPen(pg.mkPen('y'))
                 # p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
                 p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
-                p.drawLine(QPointF(t, min), QPointF(t, max))
-            if t == self.ref[-1] or t == self.ref[0]:
-                p.setBrush(pg.mkBrush('y'))
-                p.setPen(pg.mkPen('y'))
-                p.drawRect(QRectF(t-w, (open+close)/2-(close-open)/4, w*2, (close - open)/2))
-                # p.drawLine(QPointF(t - w, (open+close)/2), QPointF(t+w, (open+close)/2))
                 p.drawLine(QPointF(t, min), QPointF(t, max))
         p.end()
 
@@ -336,7 +357,8 @@ class VItem(pg.GraphicsObject):
         p = QPainter(self.picture)
         w = 1 / 3.
         # about color: https://doc.qt.io/archives/qtjambi-4.5.2_01/com/trolltech/qt/core/Qt.GlobalColor.html
-        for t, (vol, main, x, m, o, c, cp) in enumerate(self.data.values):
+
+        for t, (data, o, h, l, c, cp, vol, main, x, m) in enumerate(self.data.values):
             p.setPen(pg.mkPen("#ffff00"))
             p.setBrush(pg.mkBrush("#ffff00"))   # yellow, 中等资金
             p.drawRect(QRectF(t, 0, w, m))
@@ -361,11 +383,11 @@ class VItem(pg.GraphicsObject):
 
             v = main / vol  # 1000 * 大资金流入 / 总交易额
             f = (c-o) / o  # 当日波动幅度
-            pp = (c-cp) / cp  # 涨幅
+            # pp = (c-cp) / cp  # 涨幅
             p.setPen(pg.mkPen("#a0a0a4"))
             if (main > 0):
-                if ((v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1) or \
-                    (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.1)):
+                if (v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1):
+                    # or (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.1):
                     # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
                     p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
                 elif (v > 0.5):

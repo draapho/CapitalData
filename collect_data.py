@@ -886,14 +886,14 @@ class collect_data(object):
                     # print (index, row)
                     v = row['main']/row['vol3']                     # 1000 * 大资金流入 / 总交易额
                     f = (row['close']-row['open'])/row['open']      # 当日波动幅度
-                    p = (row['close']-row['c_pre'])/row['c_pre']    # 涨幅
+                    # p = (row['close']-row['c_pre'])/row['c_pre']    # 涨幅
                     if (row['main'] > 0):
-                        # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
-                        if ((v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.1) \
-                                 or (v>0.3 and p<0.01) or (-p*v*100 > 0.1)):
+                        # 统计所有K线的异动情况: 小幅波动, 大幅流入 # 大资金流入比 * 当日波动幅度/涨跌幅度 * 100
+                        if (v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.1):
+                            # or (v>0.3 and p<0.01) or (-p*v*100 > 0.1):
                             active += 1
                         # 计算关键节点后, 资金流入次数. 根据股价波动设置不同的权重
-                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end):
+                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end or ref_end < 0):
                             if (f<-1.0):                # 下跌
                                 inflow += v * -f
                             elif (f<1.0):               # 波动
@@ -903,10 +903,8 @@ class collect_data(object):
                             if (row['xlarge'] < 0):     # 扣掉超大流出的部分
                                 inflow += (v+row['xlarge']/row['vol3'])
                     elif (row['xlarge'] > 0):           # 超大流入, 但大流出更多
-                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end):
+                        if (index >= ref_idx or ref_idx < 0) and (index <= ref_end or ref_end < 0):
                             inflow += row['xlarge']/row['vol3']
-                    if (inflow < 0):
-                        inflow = 0
 
                 if (ref_idx < 0):
                     # v表示当天的大资金占比, 主力资金/总交易额, 单位为千分之一
