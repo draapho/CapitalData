@@ -420,21 +420,21 @@ class collect_data(object):
         url = "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_SCTJ" \
             + "&token=894050c76af8597a853f5b408b759f5d&st=TDATE&sr=-1&p=1&ps=50&js=var%20pNcRtKzQ={pages:(tp),data:(x),font:(font)}"
         url_date_page = "&filter=(MKTCODE=%27{}%27)&rt={}"
-        # index_code = ['0000011', '3990012', '3990052', '3990062']
+        # code = ['0000011', '3990012', '3990052', '3990062']
         r = self.requests_get(url + url_date_page.format(code[:-1], get_rt()), "指数信息")
         # print (r.text)
         try:
             data = re.compile(r'pages:\d+,data:(\[.*\])', re.S).findall(r.text)
             # print (data)
-            ifund = literal_eval(data[0])[0]
+            ifund = literal_eval(data[0])[1]
             # print (type(ifund), ifund)
             """
             {'TDATE': '2019-06-03T00:00:00',
             'MKTCODE': '000001',
             'ZSZ': 316353.71,       # 总市值(亿元)
             'NEWAVG': '-',
-            'LTGB': 34043.5613857,  # 流通股本(万股)
-            'ZGB': 38330.91292024,  # 总股本(万股)
+            'LTGB': 34043.5613857,  # 流通股本(亿股)
+            'ZGB': 38330.91292024,  # 总股本(亿股)
             'NEW': 2890.0809,
             'LCLOSE': 2898.6961,
             'SSGS_Count': 1472.0,   # 个股总数
@@ -444,7 +444,7 @@ class collect_data(object):
             """
             ifund['code'] = code
             ifund['PE'] = "{:6.1f}".format(ifund['SYLAVG'])
-            ifund['value'] = readableNum(ifund['ZSZ']/ifund['SSGS_Count'],divisor=10000,power="万",sort=True)
+            ifund['value'] = readableNum(ifund['ZSZ']/ifund['SSGS_Count'],divisor=10000,power="亿",sort=True)
             ifund['num'] = "{:.0f}".format(ifund['SSGS_Count'])
 
             list_index = []
@@ -984,23 +984,6 @@ class collect_data(object):
 
         fund_ticker = {}
         fund_block = {}
-        for j in range(3): # retry 3 times
-            retry = []
-            total = len(tickers)
-            for i, ticker in enumerate(tickers,1):
-                try:
-                    print("===> {}/{}\tget_all_funds({})_{}".format(i, total, ticker, j))
-                    l = self.get_code_fund(ticker)
-                    # print(l)
-                    fund_ticker[ticker] = l[0]
-                    fund_block[l[1][0]] = l[1]
-                except Exception as e:
-                    retry.append(ticker)
-                    self.rd["get_all_funds({})_{}".format(ticker, j)] = e
-                    print("get_all_funds({})_{}:\t{}".format(ticker, j, e))
-            tickers = retry
-            self.rd['get_all_funds(missed)_{}'.format(j)] = tickers
-            print("get_all_funds(missed)_{}: {}".format(j, tickers))
 
         index_code = ['0000011', '3990012', '3990052', '3990062']
         for j in range(3): # retry 3 times
@@ -1018,6 +1001,24 @@ class collect_data(object):
             index_code = retry
             self.rd['get_all_funds(index)_{}'.format(j)] = index_code
             print("get_all_funds(index)_{}: {}".format(j, index_code))
+
+        for j in range(3): # retry 3 times
+            retry = []
+            total = len(tickers)
+            for i, ticker in enumerate(tickers,1):
+                try:
+                    print("===> {}/{}\tget_all_funds({})_{}".format(i, total, ticker, j))
+                    l = self.get_code_fund(ticker)
+                    # print(l)
+                    fund_ticker[ticker] = l[0]
+                    fund_block[l[1][0]] = l[1]
+                except Exception as e:
+                    retry.append(ticker)
+                    self.rd["get_all_funds({})_{}".format(ticker, j)] = e
+                    print("get_all_funds({})_{}:\t{}".format(ticker, j, e))
+            tickers = retry
+            self.rd['get_all_funds(missed)_{}'.format(j)] = tickers
+            print("get_all_funds(missed)_{}: {}".format(j, tickers))
 
         try:
             # print (fund_ticker)

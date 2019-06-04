@@ -242,10 +242,13 @@ class PandasModel(QAbstractTableModel):
                             return QColor("#1F618D") # 蓝色
                     if col==l2i('当日'):
                         rri = self._show.values[row][col]
-                        if rri > self.rri_max:
-                            return QColor('#B03A2E')    # 红色
-                        elif rri < self.rri_min:
-                            return QColor('#1E8449')    # 绿色
+                        if np.isnan(rri) or np.isnan(self.rri_max) or np.isnan(self.rri_min):
+                            pass
+                        else:
+                            if rri > self.rri_max:
+                                return QColor('#B03A2E')    # 红色
+                            elif rri < self.rri_min:
+                                return QColor('#1E8449')    # 绿色
                     if col==l2i('PE') or col==l2i('PB'):
                         if val in self.blist:
                             return QColor("#1F618D")    # 有网页链接
