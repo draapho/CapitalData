@@ -199,8 +199,22 @@ class PandasModel(QAbstractTableModel):
         self._data = data
         self._show = data
         self.isBlock = isBlock
+        rri_sh = data.loc[0]['当日']
+        rri_sz = data.loc[1]['当日']
+        self.rri_max = max(rri_sh, rri_sz)
+        self.rri_min = min(rri_sh, rri_sz)
         self._idx = list(self._show.index.values)
-        self.blist = ["0000011","3990012","3990052","3990062","BK06111","BK05001","BK07011","BK06121","BK07051"] # 有web链接的行
+        # 有web链接的行
+        self.blist = ["0000011", "3990012", "3990052", "3990062", "BK06111", "BK05001", "BK07011", "BK06121", "BK07051"]
+        # 一线权重股, 金融地产石油, 消费白马
+        #               上证50,   HS300_     上证180_   深证100R     银行       保险      券商信托    中字头     房地产     超级品牌     石油行业   食品饮料    酿酒行业    家电行业
+        self.list1 = ["BK06111", "BK05001", "BK06121", "BK07431", "BK04751", "BK04741", "BK04731", "BK05051", "BK04511", "BK08111", "BK04641", "BK04381", "BK04771", "BK04561"]
+        # 二线蓝筹股, 基建, 制造, 周期
+        #             煤炭采选    有色金属    民航机场    铁路基建   港口水运   高速公路    仪器仪表    机械行业   工程建设    汽车行业    输配电气   交运设备    专用设备   水泥建材    钢铁行业    金属制品   化工行业     化纤行业    材料行业
+        self.list2 = ["BK04371", "BK04781", "BK04201", "BK05921", "BK04501", "BK04211", "BK04581", "BK05451", "BK04251", "BK04811", "BK04571", "BK04291", "BK09101", "BK04241", "BK04791", "BK07391", "BK05381", "BK04711", "BK05371"]
+        # 三线题材股, 科技, 医药, 生物, 中小板块
+        #              中小板      创业板     中证500    上证380     深成500    国产软件    网络安全   云计算      大数据      军工     软件服务     电子信息    通讯行业    电信运营    安防设备  电子元件    医疗行业    医药制造
+        self.list3 = ["3990052", "3990062", "BK07011", "BK07051", "BK05681", "BK06961", "BK06551", "BK05791", "BK06341", "BK04901", "BK07371", "BK04471", "BK04481", "BK07361", "BK07351", "BK04591", "BK07271", "BK04651"]
 
     def rowCount(self, parent=None):
         # return len(self._show.values)
@@ -217,16 +231,32 @@ class PandasModel(QAbstractTableModel):
             if role == Qt.DisplayRole:
                 return self._show.values[row][col]  # 不能用 self._show.iloc[row][col]
             elif role == Qt.ForegroundRole:
-                if (col == l2i('分')) and (not self.isBlock):
-                    val = self._show.values[row][col]
-                    if (val<50):      # 总体评分
-                        return QColor("#F53131")
-                    elif (val<70):
-                        return QColor("#D63DD6")
-                if ((col==l2i('PE')) or (col==l2i('PB'))) and self.isBlock:
+                if self.isBlock:
                     val = self._show.values[row][l2i('code')]
-                    if val in self.blist:
-                        return QColor("#1A0DAB")    # 有网页链接
+                    if col==l2i('code') or col==l2i('name'):
+                        if val in self.list1:
+                            return QColor("#B03A2E") # 红色
+                        elif val in self.list2:
+                            return QColor("#D68910") # 橙色/黄色
+                        elif val in self.list3:
+                            return QColor("#1F618D") # 蓝色
+                    if col==l2i('当日'):
+                        rri = self._show.values[row][col]
+                        if rri > self.rri_max:
+                            return QColor('#B03A2E')    # 红色
+                        elif rri < self.rri_min:
+                            return QColor('#1E8449')    # 绿色
+                    if col==l2i('PE') or col==l2i('PB'):
+                        if val in self.blist:
+                            return QColor("#1F618D")    # 有网页链接
+                else:
+                    if col == l2i('分'):
+                        val = self._show.values[row][col]
+                        if (val<50):      # 总体评分
+                            return QColor("#F53131")
+                        elif (val<70):
+                            return QColor("#D63DD6")
+
             elif role == Qt.BackgroundRole:
                 val = self._show.iloc[row][l2i('|')]
                 if val == "!":

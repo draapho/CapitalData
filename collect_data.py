@@ -163,14 +163,13 @@ class collect_data(object):
         return r
 
     def get_code_info(self, cmd):
-        ## ///////////////////////////////
-        ## 只需要单日信息的话, 有更快捷的方式
-        ## http://data.eastmoney.com/zjlx/detail.html   个股资金流情况
-        ## http://data.eastmoney.com/bkzj/hy.html       行业板块资金流
-        ## http://data.eastmoney.com/bkzj/gn.html       概念板块资金流
-        ## 指数资金流只能单独查.
-        ## 现在这种方式的好处是通用性非常好, 文件操作很方便.缺点是读web次数很多
-        ## //////////////////////////////
+        # 按板块批量获取资料
+        # http://data.eastmoney.com/zjlx/detail.html   个股资金流情况
+        # http://data.eastmoney.com/bkzj/hy.html       行业板块资金流
+        # http://data.eastmoney.com/bkzj/gn.html       概念板块资金流
+        # 指数资金流只能单独查.
+
+        # 按个股单独获取资料, 这种方式的好处是通用性非常好, 文件操作很方便.缺点是读web次数很多
         # 单日资金流. 网址: "http://data.eastmoney.com/zjlx/601006.html"
         # 单日资金流: http://nufm.dfcfw.com/EM_Finance2014NumericApplication/JS.aspx?type=CT&cmd=0000011&sty=CTBFTA&st=z&sr=&p=&ps=&cb=&js=var%20tab_data=({data:[(x)]})&token=70f12f2f4f091e459a279469fe49eca5
         # js代码文件: http://data.eastmoney.com/js_001/zjlx/fn_zjlxStock.js?t=_201801301611
@@ -297,7 +296,7 @@ class collect_data(object):
                     "f20": 728481824000,            // 流通市值
                     "f134": 57,                     // 板块个股数量
                     ...
-                    "f2020": 12654500302.84,        // 总市值
+                    "f2020": 12654500302.84,        // 平均市值
                     "f2113": 4.52,
                     "f2045": 179833436.99,          // 净利润
                     "f2009": 46.99,                 // 市盈率
@@ -413,95 +412,135 @@ class collect_data(object):
             raise Exception("get_code_fund err\r\turl:{}\r\tdata:{}\r\terr:{}".format(url, data, e))
             return None
 
-    def get_block_fund(self):
-        ## ///////////////////////////////
-        ## 通过  get_code_fund  获取的信息值是有问题的, 肯定不是最新值, 也不知道是否更新. 但是评分系统只有那里有, 以后可以改名为 get_score_fund
-        ## 市盈率, 市净率 == 指标, 东方财富网是每天定时更新的, 而且搜集起来很方便:
-        ## 指数信息: http://data.eastmoney.com/gzfx/scgk.html,  从指数信息里能直接获得日期数据
-        ## 板块信息: http://data.eastmoney.com/gzfx/hylist.html, 需要日期, 从指数信息里获得. 板块代码和原来的不一样......
-        ## 个股信息: http://data.eastmoney.com/gzfx/list.html.
-        ## 等有空了, PB PE 从这里更新吧...
-        ## 另外, 个股的基本面信息找找看有没有比较直观的, 类似于万得股票的... 尤其是净利润...
-        ## 以上, 等有空了再弄吧, 目前的先告一段落
-        ## /////////////////////////////
+    def get_index_fund(self, code):
+        # 获取指数基本面信息. 网址: "http://data.eastmoney.com/gzfx/scgk.html"
+        # 指数基本面: http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_SCTJ&token=894050c76af8597a853f5b408b759f5d&st=TDATE&sr=-1&p=1&ps=50&js=var%20pNcRtKzQ={pages:(tp),data:(x),font:(font)}&filter=(MKTCODE=%27000001%27)&rt=51987550
+        # js代码文件: http://data.eastmoney.com/js_001/chart.js
+        # 相关内容:   "EM_MutiSvcExpandInterface/api/js/get?type=GZFX_SCTJ&token=894050c76af8597a853f5b408b759f5d&st={sortType}&sr={sortRule}&p={page}&ps={pageSize}&js=var {jsname}={pages:(tp),data:(x),font:(font)}{param}"
+        url = "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_SCTJ" \
+            + "&token=894050c76af8597a853f5b408b759f5d&st=TDATE&sr=-1&p=1&ps=50&js=var%20pNcRtKzQ={pages:(tp),data:(x),font:(font)}"
+        url_date_page = "&filter=(MKTCODE=%27{}%27)&rt={}"
+        # index_code = ['0000011', '3990012', '3990052', '3990062']
+        r = self.requests_get(url + url_date_page.format(code[:-1], get_rt()), "指数信息")
+        # print (r.text)
+        try:
+            data = re.compile(r'pages:\d+,data:(\[.*\])', re.S).findall(r.text)
+            # print (data)
+            ifund = literal_eval(data[0])[0]
+            # print (type(ifund), ifund)
+            """
+            {'TDATE': '2019-06-03T00:00:00',
+            'MKTCODE': '000001',
+            'ZSZ': 316353.71,       # 总市值(亿元)
+            'NEWAVG': '-',
+            'LTGB': 34043.5613857,  # 流通股本(万股)
+            'ZGB': 38330.91292024,  # 总股本(万股)
+            'NEW': 2890.0809,
+            'LCLOSE': 2898.6961,
+            'SSGS_Count': 1472.0,   # 个股总数
+            'LTSZ': 273613.91,
+            'SYLAVG': 13.38,        # 平均市盈率
+            'CHG': -0.297209493606459}
+            """
+            ifund['code'] = code
+            ifund['PE'] = "{:6.1f}".format(ifund['SYLAVG'])
+            ifund['value'] = readableNum(ifund['ZSZ']/ifund['SSGS_Count'],divisor=10000,power="万",sort=True)
+            ifund['num'] = "{:.0f}".format(ifund['SSGS_Count'])
 
-        # 获取板块代码. 网址: "http://data.eastmoney.com/gzfx/hylist.html"
-        # 板块列表:   "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM&token=894050c76af8597a853f5b408b759f5d&st=GGCount&sr=-1&p=1&ps=50&js=var%20EbEHPgdh={pages:(tp),data:(x),font:(font)}&filter=(TDATE=%272019-05-24%27)&rt=51964161"
-        # js代码文件: http://data.eastmoney.com/js_001/gzfx/hyDetail.js
-        # 相关内容:   "EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM&token=894050c76af8597a853f5b408b759f5d&st={sortType}&sr={sortRule}&p={page}&ps={pageSize}&js=var {jsname}={pages:(tp),data:(x),font:(font)}&filter=(TDATE=%27" + gzDate + "%27){param}",
-        """
-        {
-            'HYName': '机械行业',
-            'HYCode': '016043',
-            'TDATE': '2019-05-24T00:00:00',
-            'PE9': 45.82067438335197,           # PE(TTM) 滚动市盈率
-            'PE9Count': 1279674379609.2998,
-            'PE7': 54.52737395130823,           # PE 静态市盈率
-            'PE7Count': 1306963333738.33,
-            'PB8': 2.5704429503422594,          # PB 市净率
-            'PB8Count': 1457734300966.2397,
-            'PB7': 3.0041225951727584,
-            'PB7Count': 1468944707838.06,
-            'PCFJYXJL7': 49.71669615983259,
-            'PCFJYXJL7Count': 1226846700872.7998,
-            'PCFJYXJL9': 32.223025980029,       # 市现率
-            'PCFJYXJL9Count': 1196566647619.16,
-            'PS7': 3.2913837182963546,
-            'PS7Count': 1471668182606.8198,
-            'PS9': 3.221344514032316,           # 市销率
-            'PS9Count': 1470849812606.8198,
-            'PEG1': 4.04766743506082,           # PEG
-            'PEG1Count': 1121073086579.0603,
-            'ZSZ': 1474150346606.8198,
-            'ZSZ_VAG': 6220043656.56886,        # 平均市值
-            'ZSZCount': 237.0,
-            'AGSZBHXS': 1148428123235.2295,
-            'AGSZBHXS_VAG': 4845688283.692951,
-            'AGSZBHXSCount': 237.0,
-            'ZGB': 197537827123.0,
-            'ZGB_VAG': 837024691.1991526,
-            'ZGBCount': 236.0,
-            'LTAG': 160444742437.0,
-            'LTAG_VAG': 676982035.5991561,
-            'LTAGCount': 236.0,
-            'GGCount': 237.0,
-            'KSCount': 40.0,
-            'ORIGINALCODE': '545'
-        }
-        """
-        url = "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM" \
-            + "&token=894050c76af8597a853f5b408b759f5d&st=GGCount&sr=-1&ps=50&js=var%20EbEHPgdh={pages:(tp),data:(x),font:(font)}" \
-            + "&rt={}".format(get_rt())
-        url_date_page = "&filter=(TDATE=%27{}%27)&p={}"
+            list_index = []
+            list_key = ['code', 'PE', 'PB', 'ROE', 'profit', 'value', 'num']
+            for k in list_key:
+                list_index.append(ifund.get(k,'-'))
+            return list_index
+        except Exception as e:
+            raise Exception("get_index_fund err\r\turl:{}\r\tdata:{}\r\terr:{}".format(url, data, e))
+            return None
 
-        page = 1
-        repeats = 20
-        tdate = datetime.datetime.now(self.tz)-datetime.timedelta(days=1)
-        while (True):
-            r = self.requests_get(
-                url + url_date_page.format(tdate.strftime("%Y-%m-%d"), page), "板块信息")
-            # print (r.text)
-            try:
-                infos = re.compile(r'pages:(\d+),data:(\[.*\])', re.S).findall(r.text)
-                pages = literal_eval(infos[0][0])
-                # print(type(pages), pages)
-                data = literal_eval(infos[0][1])
-                # print(type(datas), datas)
-                if (pages == 0) or (len(data)==0): # 获取可用日期
-                    repeats -= 1
-                    if (repeats>0):
-                        tdate -= datetime.timedelta(days=1)
-                    else:
-                        raise Exception("No valid tdate:{}".format(tdate))
-                else:
-                    print (data)
-                    # self.fund_block
-                    page += 1
-                    if page > pages:
-                        return
-            except Exception as e:
-                raise Exception("get_blocks_fund ERROR\r\turl:{}\r\tinfos:{}\r\terr:{}".format(url + url_date_page.format(tdate.strftime("%Y-%m-%d"), page), infos, e))
-                return
+    # def get_block_fund(self):
+    #     ## 通过  get_code_fund  获取的信息不是最新值. 但是评分系统只有那里有, 以后可以改名为 get_score_fund
+    #     # 市盈率, 市净率 等指标, 东方财富网是每天定时更新的, 而且搜集起来很方便:
+    #     # 指数信息: http://data.eastmoney.com/gzfx/scgk.html,  从指数信息里能直接获得日期数据
+    #     # 板块信息: http://data.eastmoney.com/gzfx/hylist.html, 需要日期, 从指数信息里获得. 板块代码和原来的不一样...
+    #     # 个股信息: http://data.eastmoney.com/gzfx/list.html.
+    #     # 等有空了, PB PE等基本信息从这里更新吧...
+    #
+    #     # 获取板块代码. 网址: "http://data.eastmoney.com/gzfx/hylist.html"
+    #     # 板块列表:   "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM&token=894050c76af8597a853f5b408b759f5d&st=GGCount&sr=-1&p=1&ps=50&js=var%20EbEHPgdh={pages:(tp),data:(x),font:(font)}&filter=(TDATE=%272019-05-24%27)&rt=51964161"
+    #     # js代码文件: http://data.eastmoney.com/js_001/gzfx/hyDetail.js
+    #     # 相关内容:   "EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM&token=894050c76af8597a853f5b408b759f5d&st={sortType}&sr={sortRule}&p={page}&ps={pageSize}&js=var {jsname}={pages:(tp),data:(x),font:(font)}&filter=(TDATE=%27" + gzDate + "%27){param}",
+    #     """
+    #     {
+    #         'HYName': '机械行业',
+    #         'HYCode': '016043',
+    #         'TDATE': '2019-05-24T00:00:00',
+    #         'PE9': 45.82067438335197,           # PE(TTM) 滚动市盈率
+    #         'PE9Count': 1279674379609.2998,
+    #         'PE7': 54.52737395130823,           # PE 静态市盈率
+    #         'PE7Count': 1306963333738.33,
+    #         'PB8': 2.5704429503422594,          # PB 市净率
+    #         'PB8Count': 1457734300966.2397,
+    #         'PB7': 3.0041225951727584,
+    #         'PB7Count': 1468944707838.06,
+    #         'PCFJYXJL7': 49.71669615983259,
+    #         'PCFJYXJL7Count': 1226846700872.7998,
+    #         'PCFJYXJL9': 32.223025980029,       # 市现率
+    #         'PCFJYXJL9Count': 1196566647619.16,
+    #         'PS7': 3.2913837182963546,
+    #         'PS7Count': 1471668182606.8198,
+    #         'PS9': 3.221344514032316,           # 市销率
+    #         'PS9Count': 1470849812606.8198,
+    #         'PEG1': 4.04766743506082,           # PEG
+    #         'PEG1Count': 1121073086579.0603,
+    #         'ZSZ': 1474150346606.8198,
+    #         'ZSZ_VAG': 6220043656.56886,        # 平均市值
+    #         'ZSZCount': 237.0,
+    #         'AGSZBHXS': 1148428123235.2295,
+    #         'AGSZBHXS_VAG': 4845688283.692951,
+    #         'AGSZBHXSCount': 237.0,
+    #         'ZGB': 197537827123.0,
+    #         'ZGB_VAG': 837024691.1991526,
+    #         'ZGBCount': 236.0,
+    #         'LTAG': 160444742437.0,
+    #         'LTAG_VAG': 676982035.5991561,
+    #         'LTAGCount': 236.0,
+    #         'GGCount': 237.0,
+    #         'KSCount': 40.0,
+    #         'ORIGINALCODE': '545'
+    #     }
+    #     """
+    #     url = "http://dcfm.eastmoney.com/EM_MutiSvcExpandInterface/api/js/get?type=GZFX_HY_SUM" \
+    #         + "&token=894050c76af8597a853f5b408b759f5d&st=GGCount&sr=-1&ps=50&js=var%20EbEHPgdh={pages:(tp),data:(x),font:(font)}" \
+    #         + "&rt={}".format(get_rt())
+    #     url_date_page = "&filter=(TDATE=%27{}%27)&p={}"
+    #
+    #     page = 1
+    #     repeats = 20
+    #     tdate = datetime.datetime.now(self.tz)-datetime.timedelta(days=1)
+    #     while (True):
+    #         r = self.requests_get(
+    #             url + url_date_page.format(tdate.strftime("%Y-%m-%d"), page), "板块信息")
+    #         # print (r.text)
+    #         try:
+    #             infos = re.compile(r'pages:(\d+),data:(\[.*\])', re.S).findall(r.text)
+    #             pages = literal_eval(infos[0][0])
+    #             # print(type(pages), pages)
+    #             data = literal_eval(infos[0][1])
+    #             # print(type(datas), datas)
+    #             if (pages == 0) or (len(data)==0): # 获取可用日期
+    #                 repeats -= 1
+    #                 if (repeats>0):
+    #                     tdate -= datetime.timedelta(days=1)
+    #                 else:
+    #                     raise Exception("No valid tdate:{}".format(tdate))
+    #             else:
+    #                 print (data)
+    #                 # self.fund_block
+    #                 page += 1
+    #                 if page > pages:
+    #                     return
+    #         except Exception as e:
+    #             raise Exception("get_blocks_fund ERROR\r\turl:{}\r\tinfos:{}\r\terr:{}".format(url + url_date_page.format(tdate.strftime("%Y-%m-%d"), page), infos, e))
+    #             return
 
     def get_blocks_from_web(self):
         print("===> get_blocks_from_web START <===")
@@ -727,12 +766,11 @@ class collect_data(object):
             if (os.path.exists(self.Gp.para_path()) is False):
                 os.makedirs(self.Gp.para_path())
             path = self.Gp.para_path() + "tickers_dl.csv"
-
         shares = self.get_shares_from_web()
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
             for t in sorted(shares.items(),key=lambda item:item[0]):
-                writer.writerow(list(t) + ['-' for n in range(10)])
+                writer.writerow(list(t) + ['-' for n in range(11)])
         print("===> save_shares_to_file SUCCESS: {} <===".format(path))
 
     def save_blocks_to_file(self, path=None):
@@ -750,9 +788,9 @@ class collect_data(object):
         with open(path, 'w', encoding="utf-8", newline='') as csv_file:
             writer = csv.writer(csv_file)
             for t in sorted(index.items(),key=lambda item:item[0]):
-                writer.writerow(list(t) + ['-' for n in range(10)])
+                writer.writerow(list(t) + ['-' for n in range(11)])
             for t in sorted(blocks.items(),key=lambda item:item[0]):
-                writer.writerow(list(t) + ['-' for n in range(10)])
+                writer.writerow(list(t) + ['-' for n in range(11)])
         print("===> save_blocks_to_file SUCCESS: {} <===".format(path))
 
     def get_blocks_from_file(self, file=None):
@@ -882,33 +920,36 @@ class collect_data(object):
                 else:
                     ref_end = ref_idx+ref_len
 
-                # 计算大资金异动次数：大资金放量0.5%以上, 逆势流入(当日下跌, 收盘下跌)
                 for index, row in df.iterrows():
                     # print (index, row)
                     if (index >= ref_idx or ref_idx < 0) and (index <= ref_end or ref_end < 0):
-                        v = row['main']/row['vol3']                     # 1000 * 大资金流入 / 总交易额
+                        v = row['main']/row['vol3']                     # 1000 * 主力资金流入 / 总交易额
+                        x = row['xlarge']/row['vol3']                   # 超大资金占比
+                        s = row['small']/row['vol3']                    # 小资金占比
+                        w = v+x-s                                       # 权重为, 主力+超大-小 = 超大*2+大*1-小*1
                         f = (row['close']-row['open'])/row['open']      # 当日波动幅度
                         p = (row['close']-row['c_pre'])/row['c_pre']    # 涨幅
+
                         if (row['main'] > 0):
+                            # 计算大资金异动次数：大资金放量0.5%以上, 逆势流入(当日下跌, 收盘下跌)
                             # 统计所有K线的异动情况: 小幅波动, 大幅流入 # 大资金流入比 * 当日波动幅度/涨跌幅度 * 100
                             if (v>0.5) or (v>0.3 and f<0.01) or (-f*v*100 > 0.1) \
                                 or (v>0.3 and p<0.01) or (-p*v*100 > 0.2):
                                 active += 1
-                            # 计算关键节点后, 资金流入次数. 根据股价波动设置不同的权重
+                            # 计算关键节点后, 资金流入次数. 根据股价波动和资金规模设置不同的权重, 超大权重2, 大单权重1, 中单权重0, 小单权重-1
+                            # 简单说, 就是股价下跌或小幅上涨时, 主力资金买入, 散户卖出, 分数就高.
                             if (f<-1.0):                # 下跌
-                                inflow += v * -f
-                            elif (f<1.0):               # 波动
-                                inflow += v
+                                inflow += w*-f
+                            elif (f<=1.0):              # 波动
+                                inflow += w
                             else:                       # 上涨
-                                inflow += v / f
-                            if (row['xlarge'] < 0):     # 扣掉超大流出的部分
-                                inflow += (v+row['xlarge']/row['vol3'])
-                        elif (row['xlarge'] > 0):           # 超大流入, 但大流出更多
-                            inflow += row['xlarge']/row['vol3']
+                                inflow += w/f
+                        elif (row['xlarge'] > 0):       # 主力流出,超大流入. 加上超大流入的分数, 权重为1
+                            inflow += x
 
                 if (ref_idx < 0):
-                    # v表示当天的大资金占比, 主力资金/总交易额, 单位为千分之一
-                    rri[code] = ["{:.2f}".format(v), "{}".format(active), "{:.1f}".format(inflow), "-"]
+                    # 当天的资金权重分数, 2*超大+1*大-1*小, 单位为千分之一
+                    rri[code] = ["{:.2f}".format(w), "{}".format(active), "{:.1f}".format(inflow), "-"]
                 else:
                     # 计算关键节点后, 股价波动百分比.
                     if ref_end > index or ref_end <= 0:
@@ -918,7 +959,7 @@ class collect_data(object):
                     # print (df[['close','date']])
                     # print (c[ref_idx], c[-1])
 
-                    rri[code] = ["{:.2f}".format(v), "{}".format(active), "{:.1f}".format(inflow), "{:.1f}".format(price_rri*100)]
+                    rri[code] = ["{:.2f}".format(w), "{}".format(active), "{:.1f}".format(inflow), "{:.1f}".format(price_rri*100)]
             except Exception as e:
                 self.rd["calculate_rri({})".format(code)] = e
                 print("calculate_rri({}):\t{}".format(code, e))
@@ -960,6 +1001,23 @@ class collect_data(object):
             tickers = retry
             self.rd['get_all_funds(missed)_{}'.format(j)] = tickers
             print("get_all_funds(missed)_{}: {}".format(j, tickers))
+
+        index_code = ['0000011', '3990012', '3990052', '3990062']
+        for j in range(3): # retry 3 times
+            retry = []
+            for code in index_code:
+                try:
+                    print("===> index\tget_all_funds({})_{}".format(code, j))
+                    l = self.get_index_fund(code)
+                    # print(l)
+                    fund_block[code] = l
+                except Exception as e:
+                    retry.append(code)
+                    self.rd["get_all_funds({})_{}".format(code, j)] = e
+                    print("get_all_funds({})_{}:\t{}".format(code, j, e))
+            index_code = retry
+            self.rd['get_all_funds(index)_{}'.format(j)] = index_code
+            print("get_all_funds(index)_{}: {}".format(j, index_code))
 
         try:
             # print (fund_ticker)
@@ -1036,6 +1094,7 @@ class collect_data(object):
 
 if __name__ == '__main__':
     me = singleton.SingleInstance()
+
     ##### test purpose #####
     # cd = collect_data()
     # cd = collect_data(Gpath(".\\_para_test"))

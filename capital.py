@@ -29,6 +29,7 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
     def sys_init(self):
         # 工具按钮
         self.copySelected = QAction('复制已选个股', self)
+        self.reload = QAction('重载所有数据', self)
         self.setParameter = QAction('设置 parameter.ini', self)
         self.openFile = QAction('打开文件夹', self)
         self.webM1M2 = QAction('M1M2走势', self)
@@ -47,7 +48,9 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         menu = QMenu(self)
         menu.addAction(self.copySelected)
         menu.addAction(self.setParameter)
+        menu.addAction(self.calculateRRI)
         menu.addAction(self.openFile)
+        menu.addAction(self.reload)
         if self.Gp.para_path() == get_defautl_path():   # 非主参数文件夹, 禁止执行数据更新
             menu.addSeparator()
             menu.addAction(self.webM1M2)
@@ -55,20 +58,19 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             menu.addAction(self.webPosition)
             menu.addAction(self.webPE)
             menu.addAction(self.webPB)
-        menu.addSeparator()
-        menu.addAction(self.calculateRRI)
-        menu.addAction(self.collectFunds)
-        if self.Gp.para_path() == get_defautl_path():   # 非主参数文件夹, 禁止执行数据更新
-            menu.addAction(self.collectSilence)
-            menu.addAction(self.autoFix)
             menu.addSeparator()
             menu.addAction(self.tickersCsv)
             menu.addAction(self.blocksCsv)
-        menu.addAction(self.blocksFolder)
+            menu.addAction(self.blocksFolder)
+            menu.addSeparator()
+            menu.addAction(self.collectFunds)
+            menu.addAction(self.collectSilence)
+            menu.addAction(self.autoFix)
 
         self.toolButton.setMenu(menu)
 
         self.copySelected.triggered.connect(self.tools)
+        self.reload.triggered.connect(self.tools)
         self.webM1M2.triggered.connect(self.tools)
         self.webPrice.triggered.connect(self.tools)
         self.webPosition.triggered.connect(self.tools)
@@ -84,19 +86,18 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.blocksCsv.triggered.connect(self.tools)
         self.blocksFolder.triggered.connect(self.tools)
 
-        self.para = self.Gp.read_parameter_ini()
-
+        self.loadParaData()
         # # 搜索文件列表, 加入自动匹配
         # self.path = get_data_path()
         # try:
-        #     self.tickers_code = glob.glob(self.path)
-        #     if len(self.tickers_code) == 0:
-        #         self.tickers_code = glob.glob(self.path)
-        #     # print (self.tickers_code)
+        #     tickers_code = glob.glob(self.path)
+        #     if len(tickers_code) == 0:
+        #         tickers_code = glob.glob(self.path)
+        #     # print (tickers_code)
         # except Exception as e:
-        #     self.tickers_code = []
+        #     tickers_code = []
         #     print (e)
-        # items_list = [os.path.splitext(os.path.basename(t))[0] for t in self.tickers_code]
+        # items_list = [os.path.splitext(os.path.basename(t))[0] for t in tickers_code]
         # print (items_list)
 
         # 加载代码和名称, 用于自动匹配输入
@@ -124,22 +125,8 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         completer.setFilterMode(Qt.MatchContains)
 
-        # table 初始数据
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
-        df = pd.read_csv(self.Gp.blocks_csv(), header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
-        col_name = df.columns.tolist()
-        col_name.insert(l2i('|'), '|')
-        self.blocks = df.reindex(columns=col_name, fill_value=".")
-        # print (self.blocks)
-        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
-        df = pd.read_csv(self.Gp.tickers_csv(), header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
-        col_name = df.columns.tolist()
-        col_name.insert(l2i('|'), '|')
-        self.tickers = df.reindex(columns=col_name, fill_value=".")
-        # print (self.tickers)
-        data = list(self.blocks.iloc[0])
-
         # UI 初始化
+        data = list(self.blocks.iloc[0])
         self.lineEditSticker.setCompleter(completer)
         self.lineEditSticker.setText(data[0])
         self.lineEditSticker.editingFinished.connect(self.editFinished)
@@ -155,6 +142,22 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
         self.isTableBlocks = True
         self.set_table()
         self.code = drawChart(self.graphicsView,data,self.para)
+
+    def loadParaData(self):
+        self.para = self.Gp.read_parameter_ini()
+        # table 初始数据
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('序', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('个股', 'f')])
+        df = pd.read_csv(self.Gp.blocks_csv(), header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '序', 'PE', 'PB', 'ROE', '利润', '市值', '个股'], dtype=dtype, encoding="utf-8",na_values='-')
+        col_name = df.columns.tolist()
+        col_name.insert(l2i('|'), '|')
+        self.blocks = df.reindex(columns=col_name, fill_value=".")
+        # print (self.blocks)
+        dtype=np.dtype([('code', 'S'), ('name', 'S'), ('当日','f'), ('异动', 'f'), ('资金', 'f'), ('股价', 'f'), ('分', 'f'), ('PE', 'f'), ('PB', 'f'), ('ROE', 'f'), ('利润', 'S'), ('市值', 'S'), ('板块', 'S')])
+        df = pd.read_csv(self.Gp.tickers_csv(), header=None, names=['code', 'name', '当日', '异动', '资金', '股价', '分', 'PE', 'PB', 'ROE', '利润', '市值', '板块'], dtype=dtype, encoding="utf-8",na_values='-')
+        col_name = df.columns.tolist()
+        col_name.insert(l2i('|'), '|')
+        self.tickers = df.reindex(columns=col_name, fill_value=".")
+        # print (self.tickers)
 
     # ======= 操作复用函数 =======
     def set_table(self):
@@ -252,10 +255,15 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
                 print("===> 修复完成! <===\r\n")
             elif self.sender() == self.openFile:
                 os.startfile(self.Gp.para_path())
-                self.para = self.Gp.read_parameter_ini()
             elif self.sender() == self.setParameter:
                 os.startfile(self.Gp.parameter_file())
-                self.para = self.Gp.read_parameter_ini()
+            elif self.sender() == self.reload:
+                self.loadParaData()
+                data = list(self.blocks.iloc[0])
+                self.lineEditSticker.setText(data[0])
+                self.isTableBlocks = True
+                self.set_table()
+                self.code = drawChart(self.graphicsView,data,self.para)
             elif self.sender() == self.tickersCsv:
                 collect_data.collect_data(self.Gp).save_shares_to_file()
             elif self.sender() == self.blocksCsv:
