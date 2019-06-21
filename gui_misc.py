@@ -152,7 +152,7 @@ def drawChart(graphicsView, data, para):
         ref_idx = [-1]  # 不显示
     # print (ref_idx)
 
-    item_list = ['date', 'open', 'high', 'low', 'close', 'c_pre', 'vol3', 'main', 'xlarge', 'middle']
+    item_list = ['date', 'open', 'high', 'low', 'close', 'c_pre', 'vol3', 'main', 'xlarge', 'middle', 'small']
     item = KItem(quotes[item_list], ref_idx)
     p1.addItem(item)
     day = quotes['close'].rolling(16).mean()  # 日均线
@@ -310,7 +310,7 @@ class KItem(pg.GraphicsObject):
         pg.GraphicsObject.__init__(self)
 
         # 生成横轴的刻度名字
-        self.data = data  ## data must have fields: open, max, min, close, c_pre
+        self.data = data
         self.ref = ref
         self.generatePicture()
 
@@ -320,7 +320,7 @@ class KItem(pg.GraphicsObject):
         w = 1 / 3.
         last = None
 
-        for t, (data, open, max, min, close, c_pre, vol3, main, xlarge, middle) in enumerate(self.data.values):
+        for t, (data, open, max, min, close, c_pre, vol3, main, xlarge, middle, small) in enumerate(self.data.values):
             if open > close:
                 p.setBrush(pg.mkBrush('g'))
                 p.setPen(pg.mkPen('g'))
@@ -389,7 +389,7 @@ class VItem(pg.GraphicsObject):
         pg.GraphicsObject.__init__(self)
 
         # 生成横轴的刻度名字
-        self.data = data  ## data must have fields: vol3, main, xlarge, middle, open, close, c_pre
+        self.data = data
         self.ref = ref
         self.generatePicture()
 
@@ -399,23 +399,26 @@ class VItem(pg.GraphicsObject):
         w = 1 / 3.
         # about color: https://doc.qt.io/archives/qtjambi-4.5.2_01/com/trolltech/qt/core/Qt.GlobalColor.html
 
-        for t, (data, o, h, l, c, cp, vol, main, x, m) in enumerate(self.data.values):
-            p.setPen(pg.mkPen("#ffff00"))
-            p.setBrush(pg.mkBrush("#ffff00"))   # yellow, 中等资金
-            p.drawRect(QRectF(t, 0, w, m))
+        for t, (data, o, h, l, c, cp, vol, main, x, m, s) in enumerate(self.data.values):
+            # p.setPen(pg.mkPen("#F9B83F"))
+            # p.setBrush(pg.mkBrush("#F9B83F"))   # yellow, 中等资金
+            # p.drawRect(QRectF(t, 0, w, m))
+            p.setPen(pg.mkPen("#9AC4ED"))
+            p.setBrush(pg.mkBrush("#9AC4ED"))   # blue, 小资金
+            p.drawRect(QRectF(t, 0, w, s))
             if (abs(x) > abs(main)):
-                p.setPen(pg.mkPen("#800000"))
-                p.setBrush(pg.mkBrush("#800000"))   # dark red, 超大
+                p.setPen(pg.mkPen("#610000"))
+                p.setBrush(pg.mkBrush("#610000"))   # dark red, 超大
                 p.drawRect(QRectF(t-w, 0, w, x))
-                p.setPen(pg.mkPen("#ff00ff"))
-                p.setBrush(pg.mkBrush("#ff00ff"))  # magenta, 主力资金
+                p.setPen(pg.mkPen("#F735DE"))
+                p.setBrush(pg.mkBrush("#F735DE"))  # magenta, 主力资金
                 p.drawRect(QRectF(t - w, 0, w, main))
             else:
-                p.setPen(pg.mkPen("#ff00ff"))
-                p.setBrush(pg.mkBrush("#ff00ff"))  # magenta, 主力资金
+                p.setPen(pg.mkPen("#F735DE"))
+                p.setBrush(pg.mkBrush("#F735DE"))  # magenta, 主力资金
                 p.drawRect(QRectF(t - w, 0, w, main))
-                p.setPen(pg.mkPen("#800000"))
-                p.setBrush(pg.mkBrush("#800000"))   # dark red, 超大
+                p.setPen(pg.mkPen("#610000"))
+                p.setBrush(pg.mkBrush("#610000"))   # dark red, 超大
                 p.drawRect(QRectF(t-w, 0, w, x))
             # 主力资金(main) = 超大资金(x) + 大额资金(l)
             # 小额资金 + 中等资金 + 大额资金 + 超大资金 = 0
@@ -430,9 +433,9 @@ class VItem(pg.GraphicsObject):
                 if (v > 0.3 and f < 0.01)  or (-f * v * 100 > 0.1) \
                     or (v > 0.3 and pp < 0.01) or (-pp * v * 100 > 0.2):
                     # 小幅波动, 大幅流入 # 大资金流入比 * 股价下跌幅度 * 100
-                    p.setPen(pg.mkPen('r'))                 # 异动, 红色标出
+                    p.setPen(pg.mkPen('#F60000'))                 # 异动, 红色标出
                 elif (v > 0.5):
-                    p.setPen(pg.mkPen('#FF6600'))
+                    p.setPen(pg.mkPen('#F9B83F'))
                 # elif (t > self.ref[0] and t < self.ref[-1]):    # 指定周期内, 只要是流入, 就标注出.
                 #     p.setPen(pg.mkPen('#FF6600'))
             p.drawRect(QRectF(t-w, -vol, 2*w, 2*vol))   # 百分比化的交易量. 极值为资金流占比达到10%

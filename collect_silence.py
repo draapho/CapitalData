@@ -31,8 +31,8 @@ def send_mail(missed):
     # mail_body = MIMEText(boby, _subtype='html', _charset='utf-8')
     boby = "股票数据自动更新完成, 详细结果见附件.\r\n" \
             "以下数据更新失败:\r\n" \
-            + "\tget_all_infos_missed:{}\r\n".format(missed['missed_info']) \
-            + "\tget_all_funds_missed:{}\r\n".format(missed['missed_fund']) \
+            + "\tget_all_infos(missed):{}\r\n".format(missed['missed_info']) \
+            + "\tget_all_funds(missed):{}\r\n".format(missed['missed_fund']) \
             + "手动修复使用如下指令:\r\n" \
             + "\tpython collect_data.py {} {}\r\n".format(missed['missed_info'], missed['missed_fund'])
 
@@ -46,7 +46,7 @@ def send_mail(missed):
     msg.attach(mail_body)
 
     # 添加report附件
-    att = MIMEText(open(get_report_file(), "rb").read(), "base64", "utf-8")
+    att = MIMEText(open(get_defautl_path()+get_report_name(), "rb").read(), "base64", "utf-8")
     att["Content-Type"] = "application/octet-stream"
     times = time.strftime("%m_%d_%H_%M", time.localtime(time.time()))
     filename_report = get_report_name()

@@ -1089,7 +1089,7 @@ class collect_data(object):
             print("===> update_finished, END! <===")
 
     def get_missed_codes(self):
-        codes_dict = {"missed_info":self.rd.get("get_all_infos_missed",[]), "missed_fund":self.rd.get("get_all_funds_missed",[])}
+        codes_dict = {"missed_info":self.rd.get("get_all_infos(missed)_2",[]), "missed_fund":self.rd.get("get_all_funds(missed)_2",[])}
         return codes_dict
 
 

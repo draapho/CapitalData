@@ -25,6 +25,9 @@ def get_data_path():
 def get_defautl_path():
     return ".\\_para\\"
 
+def get_report_name():
+    return "report.txt"
+
 ########### file / path ##########
 class Gpath(object):
     def __init__(self, gpath=None):
@@ -37,7 +40,7 @@ class Gpath(object):
         return self.gpath
 
     def report_file(self):
-        return self.gpath + "report.txt"
+        return self.gpath + get_report_name()
 
     def block_path(self):
         return self.gpath + "blocks\\"
