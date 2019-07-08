@@ -353,9 +353,13 @@ class GuiMain(QMainWindow, gui_main.Ui_MainWindow):
             if '-' in block[0]:
                 return
             if col < l2i('序') or col == l2i('个股'):
-                if block[0].startswith("BK"):
-                    dialog = GuiSub(self.tickers, block, self.Gp, para=self.para, parent=self)
-                    dialog.show()
+                if not block[0].startswith("BK"):
+                    block[0] = 'BK00000'
+                    block[1] = '价投股'
+                    block[8] = np.nan
+                    block[9] = np.nan
+                dialog = GuiSub(self.tickers, block, self.Gp, para=self.para, parent=self)
+                dialog.show()
             elif col > l2i('|'):
                 url = None
                 if block[0] == '0000011':
@@ -468,8 +472,8 @@ class GuiSub(QDialog,gui_sub.Ui_Dialog):
         self.tickers = tickers
         self.block_code = block[0]
         self.block_name = block[1]
-        self.block_pe = block[6]
-        self.block_pb = block[7]
+        self.block_pe = "{:.1f}".format(block[8])
+        self.block_pb = "{:.1f}".format(block[9])
         self.Gp = gpath
         self.para = para
         self.parent = parent

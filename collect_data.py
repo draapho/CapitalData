@@ -676,7 +676,29 @@ class collect_data(object):
                             continue
                         else:
                             name[temp[1] + temp[0]] = temp[2]
+        self.get_shares_bk00000()
         print("===> get_shares_in_blocks END <===")
+
+    def get_shares_bk00000(self):
+        bk00000 = {
+            "BK06111": "上证50_",
+            "BK06121": "上证180_",
+            "BK07431": "深证100R",
+            "BK05001": "HS300_",
+        }
+        shares_code = {}
+        path = self.Gp.block_path()
+        for bk in bk00000:
+            try:
+                with open(path + bk + ".csv", 'r', encoding="utf-8") as csv_file:
+                    reader = csv.reader(csv_file)
+                    for row in reader:
+                        if '-' not in row[0]:
+                            shares_code[row[0]] = row[1]
+            except Exception as e:
+                print("get_shares_bk00000 err:{}".format(e))
+        # print (len(shares_code), shares_code)
+        self.save_shares_in_blocks("BK00000", shares_code)
 
     def save_info(self, info, fileName, path=None):
         try:
